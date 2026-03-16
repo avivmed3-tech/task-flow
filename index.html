@@ -462,6 +462,7 @@ select.field-input option { background: #172233; }
     <button class="tab" onclick="showTab('all',this)">📋 כל המשימות</button>
     <button class="tab" onclick="showTab('goals',this)">🎯 יעדים</button>
     <button class="tab" onclick="showTab('calendar',this)">🗓️ לוח שנה</button>
+    <button class="tab" onclick="showTab('tasklists',this)">📝 רשימות</button>
     <button class="tab" onclick="showTab('shopping',this)">🛒 קניות</button>
   </div>
 
@@ -515,6 +516,7 @@ select.field-input option { background: #172233; }
         <button class="tab" style="font-size:11px;padding:6px 12px" onclick="setTaskFilter('active',this)">פעילות</button>
         <button class="tab" style="font-size:11px;padding:6px 12px" onclick="setTaskFilter('done',this)">הושלמו</button>
         <button class="tab" style="font-size:11px;padding:6px 12px" onclick="setTaskFilter('high',this)">🔴 דחוף</button>
+        <button class="tab" style="font-size:11px;padding:6px 12px" onclick="setTaskFilter('shared',this)">🔗 משותפות</button>
       </div>
     </div>
     <div class="section">
@@ -571,6 +573,59 @@ select.field-input option { background: #172233; }
 
 
   <!-- ═══ SHOPPING ═══ -->
+  <!-- ═══ TASK LISTS ═══ -->
+  <div id="tab-tasklists" class="page">
+
+    <div class="section" style="padding:12px 14px">
+      <div class="sec-header" style="margin-bottom:10px">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--purple-dim)">📝</div>
+          <div><div class="sec-title">רשימות משימות</div></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="task-act" onclick="openJoinTaskListModal()" style="opacity:1;border-color:var(--blue);color:var(--blue);font-size:11px;padding:0 10px;width:auto" title="הצטרף לרשימה משותפת">🤝 הצטרף</button>
+          <button class="task-act" onclick="openNewTaskList()" style="opacity:1;width:30px;height:30px;font-size:16px;border-color:var(--purple);color:var(--purple)" title="רשימה חדשה">+</button>
+        </div>
+      </div>
+      <div id="taskListTabs" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px"></div>
+    </div>
+
+    <div id="taskListActiveSection" class="section" style="display:none">
+      <div class="sec-header">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--purple-dim)">📋</div>
+          <div>
+            <div class="sec-title" id="taskListName">רשימה</div>
+            <div class="sec-sub" id="taskListMeta"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="task-act" onclick="editTaskListName()" style="opacity:1" title="שנה שם">✏️</button>
+          <button class="task-act" onclick="shareTaskList()" style="opacity:1;border-color:var(--blue);color:var(--blue)" title="שתף רשימה">🔗</button>
+          <button class="task-act del" onclick="deleteTaskList()" style="opacity:1" title="מחק">🗑️</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input type="text" class="field-input" id="taskListItemInput" placeholder="הוסף משימה..." style="flex:1" onkeydown="if(event.key==='Enter')addTaskListItem()">
+        <button onclick="addTaskListItem()" style="padding:10px 16px;border-radius:var(--radius-sm);background:var(--purple);border:none;color:#fff;font-weight:800;font-family:'Heebo',sans-serif;cursor:pointer;flex-shrink:0">הוסף</button>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:5px">
+          <span id="taskListProgress">0/0 משימות</span>
+          <span id="taskListPct" style="font-family:'DM Mono',monospace;color:var(--purple)">0%</span>
+        </div>
+        <div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden">
+          <div id="taskListProgressFill" style="height:100%;background:linear-gradient(90deg,var(--purple),#b985ff);border-radius:2px;transition:width 0.4s cubic-bezier(0.34,1.56,0.64,1);width:0%"></div>
+        </div>
+      </div>
+
+      <div id="taskListItemsList"></div>
+    </div>
+
+  </div>
+
   <div id="tab-shopping" class="page">
 
     <!-- Active list selector / new list button -->
@@ -904,87 +959,75 @@ select.field-input option { background: #172233; }
   <button onclick="exitSharedView()" style="margin-right:10px;font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--blue);background:transparent;color:var(--blue);cursor:pointer;font-family:'Heebo',sans-serif">יציאה</button>
 </div>
 
-<!-- ═══ SHARE TASKS MODAL ═══ -->
-<div id="shareTasksModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeShareTasksModal()">
+
+<!-- ═══ SHARE TASK LIST MODAL ═══ -->
+<div id="shareTaskListModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeShareTaskListModal()">
   <div class="modal-box">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title">🔗 שתף משימות</div>
-      <button class="modal-close" onclick="closeShareTasksModal()">✕</button>
+      <div class="modal-title">🔗 שתף רשימת משימות</div>
+      <button class="modal-close" onclick="closeShareTaskListModal()">✕</button>
     </div>
-
-    <!-- בחירת תגית לשיתוף -->
-    <div id="shareTasksStep1">
-      <div style="font-size:13px;color:var(--text2);margin-bottom:14px">בחר קטגוריה לשתף, או צור תגית שיתוף חדשה:</div>
-
-      <!-- קטגוריות קיימות -->
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px" id="shareCatButtons">
-        <button onclick="selectShareTag('personal')" class="share-cat-btn">👤 אישי</button>
-        <button onclick="selectShareTag('work')" class="share-cat-btn">💼 עבודה</button>
-        <button onclick="selectShareTag('health')" class="share-cat-btn">💊 בריאות</button>
-        <button onclick="selectShareTag('finance')" class="share-cat-btn">💰 כספים</button>
-        <button onclick="selectShareTag('shopping')" class="share-cat-btn">🛍️ קניות</button>
-        <button onclick="selectShareTag('education')" class="share-cat-btn">📚 לימודים</button>
-        <button onclick="selectShareTag('home')" class="share-cat-btn">🏠 בית</button>
-        <button onclick="selectShareTag('other')" class="share-cat-btn">📦 אחר</button>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="flex:1;height:1px;background:var(--border2)"></div>
-        <span style="font-size:11px;color:var(--text3)">או תגית חדשה</span>
-        <div style="flex:1;height:1px;background:var(--border2)"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <input id="shareTagNameInput" type="text" class="field-input" placeholder="שם התגית... (למשל: אביב)" style="flex:1">
-        <button onclick="selectShareTag(document.getElementById('shareTagNameInput').value.trim())"
-          style="padding:10px 16px;border-radius:var(--radius-sm);background:var(--accent);border:none;color:#0a141e;font-weight:800;font-family:'Heebo',sans-serif;cursor:pointer">צור</button>
-      </div>
-    </div>
-
-    <!-- קוד שיתוף -->
-    <div id="shareTasksStep2" style="display:none;text-align:center">
+    <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:13px;color:var(--text2);margin-bottom:12px">שלח את הקוד לחבר/ה — הם יקלידו אותו בתוך האפליקציה:</div>
       <div style="background:var(--surface2);border-radius:var(--radius);padding:18px;margin-bottom:14px">
         <div style="font-size:11px;color:var(--text3);margin-bottom:8px">קוד שיתוף</div>
-        <div id="shareTaskCode" style="font-size:38px;font-weight:900;letter-spacing:8px;color:var(--accent);font-family:'DM Mono',monospace">------</div>
-        <div id="shareTaskTagLabel" style="font-size:12px;color:var(--text2);margin-top:8px"></div>
+        <div id="shareTaskListCode" style="font-size:38px;font-weight:900;letter-spacing:8px;color:var(--purple);font-family:'DM Mono',monospace">------</div>
+        <div id="shareTaskListNameLabel" style="font-size:12px;color:var(--text2);margin-top:8px"></div>
       </div>
-      <button class="cta-btn" style="position:static;width:100%;margin:0 0 10px 0" onclick="copyTaskShareCode()">📋 העתק קוד</button>
-      <div id="taskShareCopied" style="font-size:13px;color:var(--accent);display:none;margin-bottom:10px">✅ הקוד הועתק!</div>
-      <button onclick="shareTasksBackToStep1()" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-family:'Heebo',sans-serif">← חזור</button>
-      <div style="margin-top:14px;padding:12px;background:var(--blue-dim);border-radius:var(--radius-sm);font-size:12px;color:var(--text2);border:1px solid rgba(59,158,255,0.2)">
-        💡 החבר/ה פותח/ת את האפליקציה ← לוחץ/ת <strong>🤝 הצטרף</strong> ← מקליד/ה את הקוד
-      </div>
+      <button class="cta-btn" style="position:static;width:100%;margin:0;background:var(--purple);box-shadow:0 4px 16px rgba(185,133,255,0.3)" onclick="copyTaskListCode()">📋 העתק קוד</button>
+      <div id="taskListCodeCopied" style="text-align:center;margin-top:10px;font-size:13px;color:var(--purple);display:none">✅ הקוד הועתק!</div>
+    </div>
+    <div style="padding:12px;background:var(--purple-dim);border-radius:var(--radius-sm);font-size:12px;color:var(--text2);border:1px solid rgba(185,133,255,0.2)">
+      💡 החבר/ה פותח/ת את האפליקציה ← לוחץ/ת <strong>🤝 הצטרף</strong> ← מקליד/ה את הקוד
     </div>
   </div>
 </div>
 
-<!-- ═══ JOIN TASKS MODAL ═══ -->
-<div id="joinTasksModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeJoinTasksModal()">
+<!-- ═══ JOIN TASK LIST MODAL ═══ -->
+<div id="joinTaskListModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeJoinTaskListModal()">
   <div class="modal-box">
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title">🤝 הצטרף לרשימת משימות</div>
-      <button class="modal-close" onclick="closeJoinTasksModal()">✕</button>
+      <button class="modal-close" onclick="closeJoinTaskListModal()">✕</button>
     </div>
     <div style="text-align:center;margin-bottom:16px">
       <div style="font-size:14px;color:var(--text2);margin-bottom:16px">הכנס את הקוד שקיבלת:</div>
-      <input id="joinTaskCodeInput" type="text" class="field-input"
+      <input id="joinTaskListCodeInput" type="text" class="field-input"
         placeholder="AB12CD"
-        style="font-size:30px;font-weight:900;letter-spacing:8px;text-align:center;font-family:'DM Mono',monospace;color:var(--accent);text-transform:uppercase"
+        style="font-size:30px;font-weight:900;letter-spacing:8px;text-align:center;font-family:'DM Mono',monospace;color:var(--purple);text-transform:uppercase"
         maxlength="6"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
-        onkeydown="if(event.key==='Enter')joinTasksByCode()">
+        onkeydown="if(event.key==='Enter')joinTaskListByCode()">
     </div>
-    <div id="joinTaskError" style="text-align:center;font-size:13px;color:var(--red);margin-bottom:12px;display:none"></div>
-    <button class="cta-btn" style="position:static;width:100%;margin:0" onclick="joinTasksByCode()" id="joinTaskBtn">הצטרף ✓</button>
+    <div id="joinTaskListError" style="text-align:center;font-size:13px;color:var(--red);margin-bottom:12px;display:none"></div>
+    <button class="cta-btn" style="position:static;width:100%;margin:0;background:var(--purple);box-shadow:0 4px 16px rgba(185,133,255,0.3)" onclick="joinTaskListByCode()" id="joinTaskListBtn">הצטרף ✓</button>
   </div>
 </div>
 
-<!-- ═══ SHARED TASKS BANNER ═══ -->
-<div id="sharedTasksBanner" style="display:none;background:linear-gradient(135deg,rgba(185,133,255,0.15),rgba(185,133,255,0.05));border-bottom:1px solid rgba(185,133,255,0.25);padding:10px 16px;font-size:13px;color:var(--purple);text-align:center">
-  🔗 משימות משותפות: <strong id="sharedTasksBannerTag"></strong>
-  <button onclick="exitSharedTasksView()" style="margin-right:10px;font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--purple);background:transparent;color:var(--purple);cursor:pointer;font-family:'Heebo',sans-serif">יציאה</button>
+<!-- ═══ TASK LIST NAME MODAL ═══ -->
+<div id="taskListNameModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeTaskListNameModal()">
+  <div class="modal-box" style="padding-bottom:28px">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="taskListNameModalTitle">רשימה חדשה</div>
+      <button class="modal-close" onclick="closeTaskListNameModal()">✕</button>
+    </div>
+    <div class="field">
+      <div class="field-label">שם הרשימה</div>
+      <input type="text" class="field-input" id="taskListNameInput" placeholder="משימות לאביב, פרויקט X..." onkeydown="if(event.key==='Enter')submitTaskListName()">
+    </div>
+    <button class="cta-btn" style="position:static;width:100%;margin:14px 0 0;background:var(--purple);box-shadow:0 4px 16px rgba(185,133,255,0.3)" onclick="submitTaskListName()">
+      <span id="taskListNameSubmitLabel">צור רשימה ✓</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ SHARED TASK LIST BANNER ═══ -->
+<div id="sharedTaskListBanner" style="display:none;background:linear-gradient(135deg,rgba(185,133,255,0.15),rgba(185,133,255,0.05));border-bottom:1px solid rgba(185,133,255,0.25);padding:10px 16px;font-size:13px;color:var(--purple);text-align:center">
+  🔗 רשימה משותפת: <strong id="sharedTaskListBannerName"></strong>
+  <button onclick="exitSharedTaskListView()" style="margin-right:10px;font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--purple);background:transparent;color:var(--purple);cursor:pointer;font-family:'Heebo',sans-serif">יציאה</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1142,6 +1185,27 @@ function renderToday() {
 }
 
 function renderAll_tab() {
+  // מצב מיוחד — הצג משימות משותפות מכל הרשימות
+  if (taskFilter === 'shared') {
+    const allSharedItems = taskLists.flatMap(l =>
+      l.items.map(item => ({ ...item, _listName: l.name, _listId: l.id }))
+    );
+    document.getElementById('allCount').textContent = allSharedItems.length;
+    document.getElementById('allList').innerHTML = allSharedItems.length
+      ? allSharedItems.map(item => `
+        <div class="task-item ${item.done?'done':''}" style="gap:10px">
+          <div class="task-check ${item.done?'checked':''}" onclick="toggleTaskListItem('${item._listId}','${item.id}')"></div>
+          <div class="task-body" style="flex:1">
+            <div class="task-title">${escH(item.title)}</div>
+            <div class="task-meta">
+              <span class="task-tag" style="background:var(--purple-dim);color:var(--purple)">📝 ${escH(item._listName)}</span>
+            </div>
+          </div>
+        </div>`).join('')
+      : '<div class="empty"><div class="empty-icon">🔗</div><p>אין משימות משותפות</p><small>עבור לטאב 📝 רשימות כדי ליצור</small></div>';
+    return;
+  }
+
   let list = [...tasks];
   if (taskFilter === 'active') list = list.filter(t=>!t.done);
   else if (taskFilter === 'done') list = list.filter(t=>t.done);
@@ -1619,6 +1683,7 @@ function showTab(name, btn) {
   if (name==='calendar') renderCalendar();
   if (name==='goals') renderGoals();
   if (name==='shopping') renderShopping();
+  if (name==='tasklists') renderTaskLists();
   // Close notif panel
   document.getElementById('notifPanel').classList.remove('open');
 }
@@ -2175,268 +2240,317 @@ function exitSharedView() {
 }
 
 
+
 // ═══════════════════════════════════════════
-// שיתוף משימות — Tasks Sharing
+// רשימות משימות — TASK LISTS
 // ═══════════════════════════════════════════
 
-let sharedTasksMode = false;
-let sharedTasksTag = null;
-let sharedTasksKey = null;
-let firebaseTasksListener = null;
+const TASK_LISTS_KEY = 'tf_tasklists_v1';
+let taskLists = [];
+let activeTaskListId = null;
+let editingTaskListId = null;
+let sharedTaskListMode = false;
+let sharedTaskListId = null;
+let firebaseTaskListListener = null;
 
-function generateTaskShareCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+function saveTaskLists() {
+  try { localStorage.setItem(TASK_LISTS_KEY, JSON.stringify(taskLists)); } catch(e) {}
+}
+function loadTaskLists() {
+  try { taskLists = JSON.parse(localStorage.getItem(TASK_LISTS_KEY)) || []; } catch(e) { taskLists = []; }
+  if (taskLists.length) activeTaskListId = taskLists[0].id;
 }
 
-// ─── פתיחת מודל שיתוף משימות ─────────────
-function openShareTasksModal() {
-  document.getElementById('shareTasksStep1').style.display = 'block';
-  document.getElementById('shareTasksStep2').style.display = 'none';
-  document.getElementById('shareTagNameInput').value = '';
-  document.querySelectorAll('.share-cat-btn').forEach(b => b.classList.remove('selected'));
-  document.getElementById('shareTasksModal').style.display = 'flex';
+// ─── רינדור ────────────────────────────────
+function renderTaskLists() {
+  renderTaskListTabs();
+  renderActiveTaskList();
 }
 
-function closeShareTasksModal() {
-  document.getElementById('shareTasksModal').style.display = 'none';
+function renderTaskListTabs() {
+  const tabs = document.getElementById('taskListTabs');
+  if (!taskLists.length) {
+    tabs.innerHTML = '<span style="font-size:12px;color:var(--text3)">לחץ + ליצור רשימה חדשה</span>';
+    document.getElementById('taskListActiveSection').style.display = 'none';
+    return;
+  }
+  if (!activeTaskListId || !taskLists.find(l => l.id === activeTaskListId)) {
+    activeTaskListId = taskLists[0].id;
+  }
+  tabs.innerHTML = taskLists.map(l => {
+    const done = l.items.filter(i=>i.done).length;
+    const total = l.items.length;
+    const isCurrent = l.id === activeTaskListId;
+    const shared = l._shareCode ? ' 🔗' : '';
+    return `<button class="tab ${isCurrent?'active':''}" style="font-size:11px;padding:6px 12px;white-space:nowrap" onclick="switchTaskList('${l.id}')">
+      ${escH(l.name)}${shared} ${total ? `<span style="opacity:0.7">${done}/${total}</span>` : ''}
+    </button>`;
+  }).join('');
 }
 
-function shareTasksBackToStep1() {
-  document.getElementById('shareTasksStep1').style.display = 'block';
-  document.getElementById('shareTasksStep2').style.display = 'none';
+function renderActiveTaskList() {
+  const section = document.getElementById('taskListActiveSection');
+  if (!activeTaskListId) { section.style.display = 'none'; return; }
+  const list = taskLists.find(l => l.id === activeTaskListId);
+  if (!list) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  document.getElementById('taskListName').textContent = list.name;
+  const created = new Date(list.createdAt).toLocaleDateString('he-IL', {day:'2-digit',month:'short',year:'2-digit'});
+  document.getElementById('taskListMeta').textContent = `נוצרה ${created}${list._shareCode ? ' · 🔗 משותפת' : ''}`;
+
+  const done = list.items.filter(i=>i.done).length;
+  const total = list.items.length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('taskListProgress').textContent = `${done}/${total} משימות`;
+  document.getElementById('taskListPct').textContent = pct + '%';
+  document.getElementById('taskListProgressFill').style.width = pct + '%';
+
+  const itemsEl = document.getElementById('taskListItemsList');
+  if (!list.items.length) {
+    itemsEl.innerHTML = '<div class="empty" style="padding:20px 0"><div class="empty-icon">📋</div><p>הרשימה ריקה</p><small>הקלד משימה למעלה והוסף</small></div>';
+    return;
+  }
+  const sorted = [...list.items].sort((a,b) => (a.done?1:-1)-(b.done?1:-1));
+  const isReadOnly = sharedTaskListMode && sharedTaskListId === activeTaskListId;
+  itemsEl.innerHTML = sorted.map(item => `
+    <div class="task-item ${item.done?'done':''}" style="gap:10px">
+      <div class="task-check ${item.done?'checked':''}" onclick="toggleTaskListItem('${list.id}','${item.id}')"></div>
+      <div class="task-body" style="flex:1">
+        <div class="task-title">${escH(item.title)}</div>
+      </div>
+      ${!isReadOnly ? `<div class="task-actions" style="opacity:1">
+        <button class="task-act del" onclick="removeTaskListItem('${list.id}','${item.id}')">🗑️</button>
+      </div>` : ''}
+    </div>`).join('');
 }
 
-// ─── בחירת תגית לשיתוף ────────────────────
-async function selectShareTag(tag) {
-  if (!tag) { showToast('הכנס שם תגית'); return; }
+// ─── פעולות ────────────────────────────────
+function switchTaskList(id) { activeTaskListId = id; renderTaskLists(); }
 
-  // סמן כפתור
-  document.querySelectorAll('.share-cat-btn').forEach(b => b.classList.remove('selected'));
-  event.target && event.target.classList.add('selected');
+function addTaskListItem() {
+  const input = document.getElementById('taskListItemInput');
+  const title = input.value.trim();
+  if (!title) return;
+  if (!activeTaskListId) {
+    const newList = { id:'TL'+Date.now(), name:'רשימת משימות', items:[], createdAt:Date.now() };
+    taskLists.push(newList); activeTaskListId = newList.id;
+  }
+  const list = taskLists.find(l => l.id === activeTaskListId);
+  if (!list) return;
+  list.items.push({ id:'TI'+Date.now(), title, done:false, addedAt:Date.now() });
+  input.value = ''; input.focus();
+  saveTaskLists();
+  renderTaskLists();
+  if (list._shareCode) syncTaskListToFirebase(list);
+}
 
+function toggleTaskListItem(listId, itemId) {
+  const list = taskLists.find(l => l.id === listId);
+  if (!list) return;
+  const item = list.items.find(i => i.id === itemId);
+  if (!item) return;
+  item.done = !item.done;
+  saveTaskLists();
+  renderTaskLists();
+  if (list._shareCode || sharedTaskListMode) syncTaskListToFirebase(list);
+}
+
+function removeTaskListItem(listId, itemId) {
+  const list = taskLists.find(l => l.id === listId);
+  if (!list) return;
+  list.items = list.items.filter(i => i.id !== itemId);
+  saveTaskLists(); renderTaskLists();
+  if (list._shareCode) syncTaskListToFirebase(list);
+}
+
+function deleteTaskList() {
+  taskLists = taskLists.filter(l => l.id !== activeTaskListId);
+  activeTaskListId = taskLists[0]?.id || null;
+  saveTaskLists(); renderTaskLists();
+  showToast('🗑️ רשימה נמחקה');
+}
+
+// ─── מודאל שם רשימה ────────────────────────
+function openNewTaskList() {
+  editingTaskListId = null;
+  document.getElementById('taskListNameModalTitle').textContent = 'רשימה חדשה';
+  document.getElementById('taskListNameSubmitLabel').textContent = 'צור רשימה ✓';
+  document.getElementById('taskListNameInput').value = '';
+  document.getElementById('taskListNameModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('taskListNameInput').focus(), 300);
+}
+
+function editTaskListName() {
+  const list = taskLists.find(l => l.id === activeTaskListId);
+  if (!list) return;
+  editingTaskListId = activeTaskListId;
+  document.getElementById('taskListNameModalTitle').textContent = 'שנה שם';
+  document.getElementById('taskListNameSubmitLabel').textContent = 'שמור ✓';
+  document.getElementById('taskListNameInput').value = list.name;
+  document.getElementById('taskListNameModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('taskListNameInput').focus(), 300);
+}
+
+function closeTaskListNameModal() { document.getElementById('taskListNameModal').style.display = 'none'; }
+
+function submitTaskListName() {
+  const name = document.getElementById('taskListNameInput').value.trim();
+  if (!name) return;
+  if (editingTaskListId) {
+    const list = taskLists.find(l => l.id === editingTaskListId);
+    if (list) { list.name = name; saveTaskLists(); renderTaskLists(); showToast('✏️ שם עודכן'); }
+  } else {
+    const newList = { id:'TL'+Date.now(), name, items:[], createdAt:Date.now() };
+    taskLists.push(newList); activeTaskListId = newList.id;
+    saveTaskLists(); renderTaskLists(); showToast('📝 רשימה חדשה נוצרה!');
+  }
+  closeTaskListNameModal();
+}
+
+// ─── שיתוף רשימת משימות ─────────────────────
+async function shareTaskList() {
+  const list = taskLists.find(l => l.id === activeTaskListId);
+  if (!list) return;
   showToast('⏳ יוצר קוד שיתוף...');
-
   try {
-    // מצא משימות עם התגית הזו
-    const taggedTasks = tasks.filter(t => t.category === tag || t.shareTag === tag);
-
-    // צור/השתמש בקוד קיים לתגית זו
-    const codeStoreKey = 'tf_share_tag_' + tag;
-    let code = localStorage.getItem(codeStoreKey);
-    if (!code) {
-      code = generateTaskShareCode();
-      localStorage.setItem(codeStoreKey, code);
+    if (!list._shareCode) {
+      list._shareCode = generateTLCode();
+      saveTaskLists();
     }
+    const code = list._shareCode;
+    await fbSet(`task-lists/${code}`, { ...list, updatedAt: Date.now() });
+    await fbSet(`tl-codes/${code}`, { listId: list.id, code });
 
-    const shareKey = 'shared-tasks-' + code;
-    const payload = {
-      tag,
-      tasks: taggedTasks,
-      sharedAt: Date.now(),
-      updatedAt: Date.now()
-    };
-
-    await fbSet(`shared-tasks/${code}`, payload);
-    await fbSet(`task-share-codes/${code}`, { tag, shareKey: 'shared-tasks/' + code });
-
-    document.getElementById('shareTaskCode').textContent = code;
-    document.getElementById('shareTaskTagLabel').textContent =
-      (CATS[tag] ? CATS[tag].label : '🏷️ ' + tag) + ' — ' + taggedTasks.length + ' משימות';
-    document.getElementById('taskShareCopied').style.display = 'none';
-    document.getElementById('shareTasksStep1').style.display = 'none';
-    document.getElementById('shareTasksStep2').style.display = 'block';
-
-    // שמור תגית לסנכרון עתידי
-    if (!tasks._shareTags) tasks._shareTags = [];
-
+    document.getElementById('shareTaskListCode').textContent = code;
+    document.getElementById('shareTaskListNameLabel').textContent = list.name + ' — ' + list.items.length + ' משימות';
+    document.getElementById('taskListCodeCopied').style.display = 'none';
+    document.getElementById('shareTaskListModal').style.display = 'flex';
   } catch(e) {
     showToast('❌ שגיאה — בדוק חיבור לאינטרנט');
     console.error(e);
   }
 }
 
-function copyTaskShareCode() {
-  const code = document.getElementById('shareTaskCode').textContent;
+function generateTLCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+function closeShareTaskListModal() { document.getElementById('shareTaskListModal').style.display = 'none'; }
+
+function copyTaskListCode() {
+  const code = document.getElementById('shareTaskListCode').textContent;
   navigator.clipboard.writeText(code).then(() => {
-    document.getElementById('taskShareCopied').style.display = 'block';
+    document.getElementById('taskListCodeCopied').style.display = 'block';
     showToast('📋 הקוד הועתק!');
   }).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = code; document.body.appendChild(ta); ta.select();
     document.execCommand('copy'); document.body.removeChild(ta);
-    document.getElementById('taskShareCopied').style.display = 'block';
+    document.getElementById('taskListCodeCopied').style.display = 'block';
     showToast('📋 הקוד הועתק!');
   });
 }
 
-// ─── פתיחת מודל הצטרפות למשימות ──────────
-function openJoinTasksModal() {
-  document.getElementById('joinTaskCodeInput').value = '';
-  document.getElementById('joinTaskError').style.display = 'none';
-  document.getElementById('joinTaskBtn').textContent = 'הצטרף ✓';
-  document.getElementById('joinTasksModal').style.display = 'flex';
-  setTimeout(() => document.getElementById('joinTaskCodeInput').focus(), 300);
+// ─── הצטרפות לרשימה משותפת ──────────────────
+function openJoinTaskListModal() {
+  document.getElementById('joinTaskListCodeInput').value = '';
+  document.getElementById('joinTaskListError').style.display = 'none';
+  document.getElementById('joinTaskListBtn').textContent = 'הצטרף ✓';
+  document.getElementById('joinTaskListModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('joinTaskListCodeInput').focus(), 300);
 }
 
-function closeJoinTasksModal() {
-  document.getElementById('joinTasksModal').style.display = 'none';
-}
+function closeJoinTaskListModal() { document.getElementById('joinTaskListModal').style.display = 'none'; }
 
-// ─── הצטרפות לפי קוד ──────────────────────
-async function joinTasksByCode() {
-  const code = document.getElementById('joinTaskCodeInput').value.trim().toUpperCase();
+async function joinTaskListByCode() {
+  const code = document.getElementById('joinTaskListCodeInput').value.trim().toUpperCase();
   if (code.length !== 6) {
-    document.getElementById('joinTaskError').textContent = 'הקוד חייב להיות 6 תווים';
-    document.getElementById('joinTaskError').style.display = 'block';
+    document.getElementById('joinTaskListError').textContent = 'הקוד חייב להיות 6 תווים';
+    document.getElementById('joinTaskListError').style.display = 'block';
     return;
   }
-  document.getElementById('joinTaskBtn').textContent = '⏳ מחפש...';
-  document.getElementById('joinTaskError').style.display = 'none';
-
+  document.getElementById('joinTaskListBtn').textContent = '⏳ מחפש...';
+  document.getElementById('joinTaskListError').style.display = 'none';
   try {
-    const data = await fbGet(`shared-tasks/${code}`);
-    if (!data || !data.tasks) {
-      document.getElementById('joinTaskError').textContent = 'קוד לא נמצא — בדוק שהקלדת נכון';
-      document.getElementById('joinTaskError').style.display = 'block';
-      document.getElementById('joinTaskBtn').textContent = 'הצטרף ✓';
+    const data = await fbGet(`task-lists/${code}`);
+    if (!data || !data.items) {
+      document.getElementById('joinTaskListError').textContent = 'קוד לא נמצא — בדוק שהקלדת נכון';
+      document.getElementById('joinTaskListError').style.display = 'block';
+      document.getElementById('joinTaskListBtn').textContent = 'הצטרף ✓';
       return;
     }
-    closeJoinTasksModal();
-    enterSharedTasksView(code, data);
+    closeJoinTaskListModal();
+    enterSharedTaskListView(code, data);
   } catch(e) {
-    document.getElementById('joinTaskError').textContent = 'שגיאה — בדוק חיבור לאינטרנט';
-    document.getElementById('joinTaskError').style.display = 'block';
-    document.getElementById('joinTaskBtn').textContent = 'הצטרף ✓';
+    document.getElementById('joinTaskListError').textContent = 'שגיאה — בדוק חיבור לאינטרנט';
+    document.getElementById('joinTaskListError').style.display = 'block';
+    document.getElementById('joinTaskListBtn').textContent = 'הצטרף ✓';
   }
 }
 
-// ─── כניסה לצפייה משותפת במשימות ─────────
-function enterSharedTasksView(code, data) {
-  sharedTasksMode = true;
-  sharedTasksTag = data.tag;
-  sharedTasksKey = code;
+// ─── כניסה לצפייה משותפת ────────────────────
+function enterSharedTaskListView(code, data) {
+  sharedTaskListMode = true;
+  sharedTaskListId = data.id;
 
-  // החלף את המשימות הנוכחיות עם המשימות המשותפות
-  sharedTasksList = data.tasks || [];
+  const idx = taskLists.findIndex(l => l.id === data.id);
+  if (idx >= 0) taskLists[idx] = data; else taskLists.unshift(data);
+  activeTaskListId = data.id;
 
-  document.getElementById('sharedTasksBannerTag').textContent =
-    (CATS[data.tag] ? CATS[data.tag].label : '🏷️ ' + data.tag);
-  document.getElementById('sharedTasksBanner').style.display = 'block';
+  document.getElementById('sharedTaskListBannerName').textContent = data.name;
+  document.getElementById('sharedTaskListBanner').style.display = 'block';
 
-  // נווט לטאב "כל המשימות"
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  // נווט לטאב רשימות
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-all').classList.add('active');
-  document.querySelector('[onclick*="showTab(\'all\'"]')?.classList.add('active');
+  document.getElementById('tab-tasklists').classList.add('active');
+  document.querySelector('[onclick*="tasklists"]')?.classList.add('active');
 
-  renderSharedTasks();
+  renderTaskLists();
 
   // האזנה לשינויים בזמן אמת
-  if (firebaseTasksListener) { firebaseTasksListener.close(); firebaseTasksListener = null; }
-  const es = new EventSource(`${FIREBASE_DB_URL}/shared-tasks/${code}.json`);
+  if (firebaseTaskListListener) { firebaseTaskListListener.close(); firebaseTaskListListener = null; }
+  const es = new EventSource(`${FIREBASE_DB_URL}/task-lists/${code}.json`);
   es.addEventListener('put', e => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg && msg.data && msg.data.tasks) {
-        sharedTasksList = msg.data.tasks;
-        if (sharedTasksMode) renderSharedTasks();
+      if (msg && msg.data && msg.data.items) {
+        const i = taskLists.findIndex(l => l.id === sharedTaskListId);
+        if (i >= 0 && (msg.data.updatedAt||0) > (taskLists[i].updatedAt||0)) {
+          taskLists[i] = msg.data;
+          if (activeTaskListId === sharedTaskListId) renderTaskLists();
+        }
       }
     } catch(err) {}
   });
   es.onerror = () => {};
-  firebaseTasksListener = es;
+  firebaseTaskListListener = es;
 
-  showToast('✅ מחובר: ' + (CATS[data.tag] ? CATS[data.tag].label : data.tag));
+  showToast('✅ מחובר: ' + data.name);
 }
 
-// ─── רינדור משימות משותפות ────────────────
-let sharedTasksList = [];
-
-function renderSharedTasks() {
-  const el = document.getElementById('allList');
-  const countEl = document.getElementById('allCount');
-  if (!sharedTasksList.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>אין משימות לתצוגה</p></div>';
-    countEl.textContent = '0';
-    return;
-  }
-  countEl.textContent = sharedTasksList.length;
-  el.innerHTML = sharedTasksList.map(t => taskHTMLShared(t)).join('');
-}
-
-// ─── כרטיס משימה במצב צפייה משותפת ───────
-function taskHTMLShared(t) {
-  const cat = CATS[t.category] || CATS.other;
-  const dCls = dueCls(t.due);
-  const dLbl = dueLabel(t.due);
-  return `<div class="task-item ${t.done?'done':''}">
-    <div class="prio-dot" style="background:${PRIO_COLORS[t.priority||'low']}"></div>
-    <div class="task-check ${t.done?'checked':''}" onclick="toggleSharedTask('${t.id}')"></div>
-    <div class="task-body">
-      <div class="task-title">${escH(t.title)}</div>
-      <div class="task-meta">
-        <span class="task-tag" style="background:${cat.color}22;color:${cat.color}">${cat.label}</span>
-        ${dLbl ? `<span class="task-due ${dCls}">${dLbl}</span>` : ''}
-      </div>
-    </div>
-  </div>`;
-}
-
-// ─── סימון משימה משותפת כבוצעה ────────────
-async function toggleSharedTask(taskId) {
-  const t = sharedTasksList.find(t => t.id === taskId);
-  if (!t) return;
-  t.done = !t.done;
-  renderSharedTasks();
-  // עדכן ב-Firebase
+// ─── סנכרון שינויים ל-Firebase ──────────────
+async function syncTaskListToFirebase(list) {
+  if (!list._shareCode) return;
   try {
-    const data = await fbGet(`shared-tasks/${sharedTasksKey}`);
-    if (data) {
-      const idx = data.tasks.findIndex(x => x.id === taskId);
-      if (idx >= 0) data.tasks[idx].done = t.done;
-      data.updatedAt = Date.now();
-      await fbSet(`shared-tasks/${sharedTasksKey}`, data);
-    }
-  } catch(e) { console.error(e); }
+    await fbSet(`task-lists/${list._shareCode}`, { ...list, updatedAt: Date.now() });
+  } catch(e) { console.error('TL sync failed:', e); }
 }
 
-// ─── עדכון Firebase כשהמשתף משנה משימות ──
-async function syncSharedTasksToFirebase() {
-  if (!sharedTasksMode) return;
-  // כשהמשתף המקורי משנה משימות — עדכן ב-Firebase
-  const codeStoreKey = 'tf_share_tag_' + sharedTasksTag;
-  const code = localStorage.getItem(codeStoreKey);
-  if (!code) return;
-  try {
-    const taggedTasks = tasks.filter(t => t.category === sharedTasksTag || t.shareTag === sharedTasksTag);
-    const data = await fbGet(`shared-tasks/${code}`);
-    if (data) {
-      data.tasks = taggedTasks;
-      data.updatedAt = Date.now();
-      await fbSet(`shared-tasks/${code}`, data);
-    }
-  } catch(e) { console.error(e); }
+// ─── יציאה מצפייה משותפת ────────────────────
+function exitSharedTaskListView() {
+  sharedTaskListMode = false; sharedTaskListId = null;
+  if (firebaseTaskListListener) { firebaseTaskListListener.close(); firebaseTaskListListener = null; }
+  document.getElementById('sharedTaskListBanner').style.display = 'none';
+  taskLists = taskLists.filter(l => l._shareCode !== undefined ? false : true);
+  loadTaskLists(); renderTaskLists();
+  showToast('יצאת מהרשימה המשותפת');
 }
 
-// ─── יציאה מצפייה משותפת ──────────────────
-function exitSharedTasksView() {
-  sharedTasksMode = false;
-  sharedTasksTag = null;
-  sharedTasksKey = null;
-  sharedTasksList = [];
-  if (firebaseTasksListener) { firebaseTasksListener.close(); firebaseTasksListener = null; }
-  document.getElementById('sharedTasksBanner').style.display = 'none';
-  renderAll();
-  showToast('יצאת מהצפייה המשותפת');
-}
-
-// ─── עקוף renderAll_tab במצב שיתוף ────────
-const _origRenderAllTab = renderAll_tab;
-renderAll_tab = function() {
-  if (sharedTasksMode) { renderSharedTasks(); return; }
-  _origRenderAllTab();
-};
+// ─── הוסף לאתחול ────────────────────────────
+loadTaskLists();
 
 </script>
 </body>
