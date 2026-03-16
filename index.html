@@ -1,0 +1,2097 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TaskFlow — ניהול משימות</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a141e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TaskFlow">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="apple-touch-icon-precomposed" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="shortcut icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a141e;
+  --surface: #111c28;
+  --surface2: #172233;
+  --surface3: #1e2d40;
+  --border: rgba(0,210,150,0.1);
+  --border2: rgba(255,255,255,0.06);
+  --accent: #00d296;
+  --accent2: #00a876;
+  --accent-dim: rgba(0,210,150,0.15);
+  --blue: #3b9eff;
+  --blue-dim: rgba(59,158,255,0.15);
+  --orange: #ff8c42;
+  --orange-dim: rgba(255,140,66,0.15);
+  --red: #ff4d6a;
+  --red-dim: rgba(255,77,106,0.15);
+  --yellow: #ffd166;
+  --yellow-dim: rgba(255,209,102,0.15);
+  --purple: #b985ff;
+  --purple-dim: rgba(185,133,255,0.15);
+  --text: #e8f0f8;
+  --text2: #7a9bb5;
+  --text3: #415870;
+  --glow: rgba(0,210,150,0.12);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+body.light {
+  --bg: #f0f5f9;
+  --surface: #ffffff;
+  --surface2: #e8f0f5;
+  --surface3: #dce8f0;
+  --border: rgba(0,160,118,0.15);
+  --border2: rgba(0,0,0,0.08);
+  --accent: #00a876;
+  --accent2: #008860;
+  --accent-dim: rgba(0,168,118,0.12);
+  --blue: #1a7fe0;
+  --blue-dim: rgba(26,127,224,0.1);
+  --orange: #e07020;
+  --orange-dim: rgba(224,112,32,0.1);
+  --red: #e0304a;
+  --red-dim: rgba(224,48,74,0.1);
+  --yellow: #c09000;
+  --yellow-dim: rgba(192,144,0,0.1);
+  --purple: #8050d0;
+  --purple-dim: rgba(128,80,208,0.1);
+  --text: #0d1e2e;
+  --text2: #3a5870;
+  --text3: #7a9bb5;
+  --glow: rgba(0,168,118,0.08);
+  --shadow: 0 4px 24px rgba(0,0,0,0.1);
+}
+
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Heebo', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+body::before {
+  content: '';
+  position: fixed; top: -150px; left: -150px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(0,210,150,0.07) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed; bottom: -100px; right: -100px;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(59,158,255,0.05) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+button, input, select, textarea { font-family: inherit; font-size: inherit; }
+input, select, textarea { outline: none; }
+* { scrollbar-width: thin; scrollbar-color: var(--surface3) transparent; }
+
+/* ── App shell ───────────────────────────── */
+.app { max-width: 480px; margin: 0 auto; padding: 0 0 100px; position: relative; z-index: 1; }
+
+/* ── Header ─────────────────────────────── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  background-color: rgba(10,20,30,0.88);
+  border-bottom: 1px solid var(--border2);
+  padding: 16px 18px 14px;
+}
+body.light .header { background-color: rgba(240,245,249,0.92); }
+.header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-img { width: 34px; height: 34px; border-radius: 9px; }
+.logo-name {
+  font-size: 20px; font-weight: 900; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--accent) 0%, #00c8ff 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.logo-sub { font-size: 10px; color: var(--text3); font-weight: 400; letter-spacing: 0.5px; }
+.header-btns { display: flex; gap: 8px; }
+.hbtn {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text2); cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.hbtn:hover { background: var(--surface3); color: var(--text); }
+.hbtn.accent { background: var(--accent); color: #0a141e; border-color: transparent; font-size: 20px; font-weight: 700; box-shadow: 0 4px 16px rgba(0,210,150,0.3); }
+.hbtn.accent:hover { transform: scale(1.05); }
+
+/* ── Progress bar ───────────────────────── */
+.progress-wrap { margin-bottom: 2px; }
+.progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text3); margin-bottom: 6px; font-weight: 600; }
+.progress-label span { color: var(--accent); font-family: 'DM Mono', monospace; }
+.progress-bar { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #00c8ff); border-radius: 2px; transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+
+/* ── Tabs ───────────────────────────────── */
+.tabs { display: flex; padding: 10px 16px; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0; padding: 7px 14px; border-radius: 20px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  border: 1.5px solid var(--border2); background: var(--surface);
+  color: var(--text2); transition: all 0.2s;
+}
+.tab.active { background: var(--accent); border-color: var(--accent); color: #0a141e; box-shadow: 0 4px 14px rgba(0,210,150,0.3); }
+
+/* ── Pages ──────────────────────────────── */
+.page { display: none; padding: 0 14px; }
+.page.active { display: block; }
+
+/* ── Section ────────────────────────────── */
+.section {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 10px;
+  animation: fadeUp 0.3s ease;
+}
+@keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+.sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.sec-title-row { display: flex; align-items: center; gap: 8px; }
+.sec-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.sec-title { font-size: 13px; font-weight: 800; }
+.sec-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.sec-count { font-size: 11px; font-weight: 700; color: var(--text3); background: var(--surface2); padding: 3px 8px; border-radius: 10px; }
+
+/* ── Stats row ──────────────────────────── */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); padding: 12px 10px; text-align: center;
+  animation: fadeUp 0.3s ease;
+}
+.stat-val { font-size: 22px; font-weight: 900; font-family: 'DM Mono', monospace; line-height: 1; margin-bottom: 4px; }
+.stat-label { font-size: 10px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── Task item ──────────────────────────── */
+.task-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 0; border-bottom: 1px solid var(--border2);
+  transition: opacity 0.2s;
+  animation: fadeUp 0.25s ease;
+}
+.task-item:last-child { border-bottom: none; padding-bottom: 0; }
+.task-item.done { opacity: 0.5; }
+.task-check {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--border2); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; margin-top: 1px;
+}
+.task-check.checked { background: var(--accent); border-color: var(--accent); }
+.task-check.checked::after { content: '✓'; font-size: 12px; font-weight: 900; color: #0a141e; }
+.task-body { flex: 1; min-width: 0; }
+.task-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; line-height: 1.3; }
+.task-item.done .task-title { text-decoration: line-through; color: var(--text3); }
+.task-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.task-tag {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.task-due { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.task-due.overdue { color: var(--red); }
+.task-due.today { color: var(--yellow); }
+.task-due.soon { color: var(--orange); }
+.task-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+.task-item:hover .task-actions { opacity: 1; }
+.task-act {
+  width: 26px; height: 26px; border-radius: 7px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text3); cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.task-act:hover { background: var(--surface3); color: var(--text); }
+.task-act.del:hover { background: var(--red-dim); color: var(--red); border-color: var(--red); }
+
+/* ── Priority dots ──────────────────────── */
+.prio-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
+
+/* ── Goal card ──────────────────────────── */
+.goal-card {
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); padding: 14px; margin-bottom: 8px;
+  cursor: pointer; transition: all 0.2s;
+  animation: fadeUp 0.3s ease;
+}
+.goal-card:hover { border-color: var(--accent); background: var(--surface3); }
+.goal-card:last-child { margin-bottom: 0; }
+.goal-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+.goal-name { font-size: 14px; font-weight: 700; }
+.goal-date { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
+.goal-badge { font-size: 20px; }
+.goal-progress { height: 5px; background: var(--surface3); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+.goal-fill { height: 100%; border-radius: 3px; transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+.goal-stats { display: flex; justify-content: space-between; font-size: 11px; color: var(--text3); }
+.goal-pct { font-family: 'DM Mono', monospace; font-weight: 700; }
+
+/* ── Calendar strip ─────────────────────── */
+.cal-strip { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-bottom: 10px; padding: 2px 0; }
+.cal-strip::-webkit-scrollbar { display: none; }
+.cal-day {
+  flex-shrink: 0; width: 48px; border-radius: 12px;
+  padding: 8px 0; text-align: center; cursor: pointer;
+  background: var(--surface2); border: 1.5px solid var(--border2);
+  transition: all 0.2s;
+}
+.cal-day.today { border-color: var(--accent); background: var(--accent-dim); }
+.cal-day.selected { background: var(--accent); border-color: var(--accent); }
+.cal-day.has-tasks { position: relative; }
+.cal-day.has-tasks::after { content: ''; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.cal-day.selected.has-tasks::after { background: #0a141e; }
+.cal-dname { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+.cal-day.selected .cal-dname { color: #0a141e; }
+.cal-dnum { font-size: 16px; font-weight: 800; margin-top: 2px; }
+.cal-day.selected .cal-dnum { color: #0a141e; }
+
+/* ── Empty state ────────────────────────── */
+.empty { text-align: center; padding: 32px 16px; color: var(--text3); }
+.empty-icon { font-size: 2.5rem; margin-bottom: 10px; filter: grayscale(0.3); }
+.empty p { font-size: 13px; margin-bottom: 4px; }
+.empty small { font-size: 11px; opacity: 0.6; }
+
+/* ── CTA button ─────────────────────────── */
+.cta-btn {
+  width: calc(100% - 28px); margin: 10px 14px;
+  padding: 15px; background: linear-gradient(135deg, var(--accent), #00c8ff);
+  border: none; border-radius: 14px; color: #0a141e;
+  font-size: 15px; font-weight: 800; font-family: 'Heebo', sans-serif;
+  cursor: pointer; letter-spacing: 0.2px;
+  box-shadow: 0 8px 24px rgba(0,210,150,0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: sticky; bottom: 14px; z-index: 50;
+}
+.cta-btn:active { transform: scale(0.98); }
+
+/* ── Fields ─────────────────────────────── */
+.field { margin-bottom: 13px; }
+.field:last-child { margin-bottom: 0; }
+.field-label { font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.field-input {
+  width: 100%; background: var(--surface2); border: 1.5px solid var(--border2);
+  border-radius: var(--radius-sm); padding: 10px 13px;
+  font-size: 14px; font-family: 'Heebo', sans-serif;
+  color: var(--text); font-weight: 500;
+  transition: border-color 0.2s, box-shadow 0.2s; -webkit-appearance: none;
+}
+.field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,210,150,0.12); }
+.field-input::placeholder { color: var(--text3); font-weight: 400; }
+textarea.field-input { resize: vertical; min-height: 70px; line-height: 1.5; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+select.field-input option { background: #172233; }
+
+/* ── Priority picker ────────────────────── */
+.prio-picker { display: flex; gap: 8px; }
+.prio-opt {
+  flex: 1; padding: 8px; border-radius: 9px; border: 1.5px solid var(--border2);
+  background: var(--surface2); cursor: pointer; text-align: center;
+  font-size: 12px; font-weight: 700; transition: all 0.2s; font-family: 'Heebo', sans-serif;
+  color: var(--text2);
+}
+.prio-opt.selected-low { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); }
+.prio-opt.selected-medium { background: var(--yellow-dim); border-color: var(--yellow); color: var(--yellow); }
+.prio-opt.selected-high { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+
+/* ── Modal ──────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.modal-box {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 22px 22px 0 0; padding: 20px 18px 36px;
+  width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+  animation: slideUp 0.3s cubic-bezier(0.34,1.4,0.64,1);
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-handle { width: 36px; height: 4px; background: var(--surface3); border-radius: 2px; margin: 0 auto 18px; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.modal-title { font-size: 17px; font-weight: 800; }
+.modal-close {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text2); cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.modal-close:hover { background: var(--surface3); color: var(--text); }
+
+/* ── Confirm ────────────────────────────── */
+.confirm-body { text-align: center; padding: 8px 0 4px; }
+.confirm-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+.confirm-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; line-height: 1.5; }
+.confirm-btns { display: flex; gap: 10px; }
+.btn-cancel { flex: 1; padding: 13px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 12px; color: var(--text2); font-size: 14px; font-weight: 600; font-family: 'Heebo', sans-serif; cursor: pointer; }
+.btn-danger { flex: 1; padding: 13px; background: var(--red); border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 700; font-family: 'Heebo', sans-serif; cursor: pointer; }
+
+/* ── Toast ──────────────────────────────── */
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(16px);
+  background: var(--surface3); border: 1px solid var(--border2);
+  border-radius: 12px; padding: 11px 20px; font-size: 13px; font-weight: 600;
+  opacity: 0; transition: all 0.3s; z-index: 300; white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Notification bell badge ────────────── */
+.notif-badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 16px; height: 16px; background: var(--red);
+  border-radius: 8px; border: 2px solid var(--bg);
+  font-size: 9px; font-weight: 900; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px; font-family: 'DM Mono', monospace;
+  animation: badgePop 0.3s cubic-bezier(0.34,1.8,0.64,1);
+}
+@keyframes badgePop { from { transform:scale(0); } to { transform:scale(1); } }
+.hbtn-wrap { position: relative; }
+
+/* ── Notification panel ─────────────────── */
+.notif-panel {
+  position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+  width: calc(100% - 28px); max-width: 452px;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 16px;
+  z-index: 150; box-shadow: var(--shadow);
+  animation: fadeUp 0.2s ease;
+  max-height: 60vh; overflow-y: auto;
+  display: none;
+}
+.notif-panel.open { display: block; }
+.notif-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.notif-panel-title { font-size: 13px; font-weight: 800; }
+.notif-clear { font-size: 11px; color: var(--accent); background: none; border: none; cursor: pointer; font-family: 'Heebo', sans-serif; font-weight: 700; }
+.notif-item {
+  display: flex; gap: 10px; padding: 10px 0;
+  border-bottom: 1px solid var(--border2);
+}
+.notif-item:last-child { border-bottom: none; padding-bottom: 0; }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.notif-text { flex: 1; font-size: 13px; color: var(--text2); line-height: 1.4; }
+.notif-text strong { color: var(--text); display: block; margin-bottom: 2px; }
+.notif-time { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+/* ── PWA install banner ─────────────────── */
+.install-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); z-index: 400; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+.install-card {
+  position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 24px 24px 0 0; padding: 28px 22px 40px; z-index: 401;
+  animation: slideUp 0.4s cubic-bezier(0.34,1.3,0.64,1); text-align: center;
+}
+.install-icon-wrap { position: relative; width: 88px; height: 88px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; }
+.install-icon { width: 80px; height: 80px; border-radius: 20px; position: relative; z-index: 1; box-shadow: 0 8px 24px rgba(0,210,150,0.3); }
+.install-icon-glow { position: absolute; inset: -8px; border-radius: 28px; background: radial-gradient(circle, rgba(0,210,150,0.3), transparent 70%); filter: blur(10px); z-index: 0; animation: glowPulse 2.5s ease-in-out infinite; }
+@keyframes glowPulse { 0%,100%{opacity:0.6;transform:scale(1);}50%{opacity:1;transform:scale(1.08);} }
+.install-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+.install-sub { font-size: 14px; color: var(--text2); margin-bottom: 16px; line-height: 1.5; }
+.install-feats { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.install-feat { padding: 5px 12px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border2); font-size: 12px; font-weight: 700; color: var(--text2); }
+.install-btn-ok { width: 100%; padding: 15px; border-radius: 14px; background: linear-gradient(135deg, var(--accent), #00c8ff); border: none; color: #0a141e; font-size: 16px; font-weight: 800; font-family: 'Heebo', sans-serif; cursor: pointer; margin-bottom: 10px; box-shadow: 0 8px 24px rgba(0,210,150,0.35); }
+.install-btn-dismiss { width: 100%; padding: 12px; border-radius: 14px; background: transparent; border: 1px solid var(--border2); color: var(--text3); font-size: 14px; font-family: 'Heebo', sans-serif; cursor: pointer; }
+.ios-hint-card { position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto; background: var(--surface2); border-top: 1px solid var(--border2); padding: 14px 16px; display: flex; align-items: center; gap: 12px; z-index: 400; animation: slideUp 0.3s ease; }
+.ios-hint-icon { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; }
+.ios-hint-text { flex: 1; font-size: 13px; color: var(--text2); display: flex; flex-direction: column; gap: 3px; }
+.ios-hint-text strong { color: var(--text); }
+.ios-hint-close { width: 28px; height: 28px; border-radius: 8px; background: var(--surface3); border: none; color: var(--text3); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">
+        <img src="icon-192.png" class="logo-img" alt="TaskFlow">
+        <div>
+          <div class="logo-name">TaskFlow</div>
+          <div class="logo-sub">ניהול משימות חכם</div>
+        </div>
+      </div>
+      <div class="header-btns">
+        <div class="hbtn-wrap">
+          <button class="hbtn" id="notifBtn" onclick="toggleNotifPanel()" title="התראות">🔔</button>
+          <div class="notif-badge" id="notifBadge" style="display:none"></div>
+        </div>
+        <button class="hbtn" onclick="toggleTheme()" id="themeBtn" title="מצב">🌙</button>
+        <button class="hbtn accent" onclick="openAddTask()" title="משימה חדשה">+</button>
+      </div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-label">התקדמות יומית <span id="progressPct">0%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- Notification panel -->
+  <div class="notif-panel" id="notifPanel">
+    <div class="notif-panel-header">
+      <div class="notif-panel-title">🔔 התראות</div>
+      <button class="notif-clear" onclick="clearNotifs()">נקה הכל</button>
+    </div>
+    <div id="notifList"></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('today',this)">📅 היום</button>
+    <button class="tab" onclick="showTab('all',this)">📋 כל המשימות</button>
+    <button class="tab" onclick="showTab('goals',this)">🎯 יעדים</button>
+    <button class="tab" onclick="showTab('calendar',this)">🗓️ לוח שנה</button>
+    <button class="tab" onclick="showTab('shopping',this)">🛒 קניות</button>
+  </div>
+
+  <!-- ═══ TODAY ═══ -->
+  <div id="tab-today" class="page active">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-val" id="statTotal" style="color:var(--blue)">0</div>
+        <div class="stat-label">סה"כ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statDone" style="color:var(--accent)">0</div>
+        <div class="stat-label">הושלמו</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statOverdue" style="color:var(--red)">0</div>
+        <div class="stat-label">באיחור</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statToday" style="color:var(--yellow)">0</div>
+        <div class="stat-label">להיום</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--accent-dim)">☀️</div>
+          <div><div class="sec-title">משימות להיום</div><div class="sec-sub" id="todayDate"></div></div>
+        </div>
+        <span class="sec-count" id="todayCount">0</span>
+      </div>
+      <div id="todayList"></div>
+    </div>
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--red-dim)">🔥</div>
+          <div><div class="sec-title">דחוף — עד מחר</div></div>
+        </div>
+        <span class="sec-count" id="urgentCount">0</span>
+      </div>
+      <div id="urgentList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ ALL TASKS ═══ -->
+  <div id="tab-all" class="page">
+    <div class="section" style="padding:12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="tab active" style="font-size:11px;padding:6px 12px" onclick="setTaskFilter('all',this)">הכל</button>
+        <button class="tab" style="font-size:11px;padding:6px 12px" onclick="setTaskFilter('active',this)">פעילות</button>
+        <button class="tab" style="font-size:11px;padding:6px 12px" onclick="setTaskFilter('done',this)">הושלמו</button>
+        <button class="tab" style="font-size:11px;padding:6px 12px" onclick="setTaskFilter('high',this)">🔴 דחוף</button>
+      </div>
+    </div>
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--blue-dim)">📋</div>
+          <div><div class="sec-title">כל המשימות</div></div>
+        </div>
+        <span class="sec-count" id="allCount">0</span>
+      </div>
+      <div id="allList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ GOALS ═══ -->
+  <div id="tab-goals" class="page">
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--purple-dim)">🎯</div>
+          <div><div class="sec-title">היעדים שלי</div><div class="sec-sub">מעקב אחר התקדמות</div></div>
+        </div>
+        <button class="task-act" onclick="openAddGoal()" style="opacity:1;width:30px;height:30px;font-size:16px;border-color:var(--accent);color:var(--accent)">+</button>
+      </div>
+      <div id="goalsList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ CALENDAR ═══ -->
+  <div id="tab-calendar" class="page">
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--orange-dim)">🗓️</div>
+          <div><div class="sec-title" id="calMonthLabel"></div><div class="sec-sub">בחר יום לראות משימות</div></div>
+        </div>
+      </div>
+      <div class="cal-strip" id="calStrip"></div>
+    </div>
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--accent-dim)">📅</div>
+          <div><div class="sec-title" id="calDayLabel">בחר יום</div></div>
+        </div>
+        <span class="sec-count" id="calDayCount">0</span>
+      </div>
+      <div id="calDayList"></div>
+    </div>
+  </div>
+
+
+  <!-- ═══ SHOPPING ═══ -->
+  <div id="tab-shopping" class="page">
+
+    <!-- Active list selector / new list button -->
+    <div class="section" style="padding:12px 14px">
+      <div class="sec-header" style="margin-bottom:10px">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--accent-dim)">🛒</div>
+          <div><div class="sec-title">רשימות קניות</div></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="task-act" onclick="openJoinModal()" style="opacity:1;border-color:var(--blue);color:var(--blue);font-size:11px;padding:0 10px;width:auto" title="הצטרף לרשימה משותפת">🤝 הצטרף</button>
+          <button class="task-act" onclick="openNewShoppingList()" style="opacity:1;width:30px;height:30px;font-size:16px;border-color:var(--accent);color:var(--accent)" title="רשימה חדשה">+</button>
+        </div>
+      </div>
+      <!-- List tabs -->
+      <div id="shoppingListTabs" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px"></div>
+    </div>
+
+    <!-- Active list -->
+    <div id="shoppingActiveSection" class="section" style="display:none">
+      <div class="sec-header">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--orange-dim)">🛍️</div>
+          <div>
+            <div class="sec-title" id="shoppingListName">רשימה</div>
+            <div class="sec-sub" id="shoppingListMeta"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="task-act" onclick="editShoppingListName()" style="opacity:1" title="שנה שם">✏️</button>
+          <button class="task-act" onclick="shareShoppingList()" style="opacity:1;border-color:var(--blue);color:var(--blue)" title="שתף רשימה">🔗</button>
+          <button class="task-act" onclick="completeShoppingList()" id="shoppingCompleteBtn" style="opacity:1;border-color:var(--accent);color:var(--accent)" title="סמן כבוצע">✓</button>
+          <button class="task-act del" onclick="deleteShoppingList()" style="opacity:1" title="מחק">🗑️</button>
+        </div>
+      </div>
+
+      <!-- Add item input -->
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input type="text" class="field-input" id="shoppingItemInput" placeholder="הוסף פריט..." style="flex:1" onkeydown="if(event.key==='Enter')addShoppingItem()">
+        <button onclick="addShoppingItem()" style="padding:10px 16px;border-radius:var(--radius-sm);background:var(--accent);border:none;color:#0a141e;font-weight:800;font-family:'Heebo',sans-serif;cursor:pointer;flex-shrink:0">הוסף</button>
+      </div>
+
+      <!-- Progress bar for list -->
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:5px">
+          <span id="shoppingProgress">0/0 פריטים</span>
+          <span id="shoppingPct" style="font-family:'DM Mono',monospace;color:var(--accent)">0%</span>
+        </div>
+        <div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden">
+          <div id="shoppingProgressFill" style="height:100%;background:linear-gradient(90deg,var(--accent),#00c8ff);border-radius:2px;transition:width 0.4s cubic-bezier(0.34,1.56,0.64,1);width:0%"></div>
+        </div>
+      </div>
+
+      <div id="shoppingItemsList"></div>
+    </div>
+
+    <!-- History -->
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title-row">
+          <div class="sec-icon" style="background:var(--purple-dim)">📜</div>
+          <div><div class="sec-title">היסטוריית קניות</div><div class="sec-sub">רשימות שבוצעו</div></div>
+        </div>
+        <span class="sec-count" id="shoppingHistoryCount">0</span>
+      </div>
+      <div id="shoppingHistoryList"></div>
+    </div>
+
+  </div>
+
+</div><!-- /app -->
+
+<button class="cta-btn" onclick="openAddTask()">+ משימה חדשה</button>
+
+
+<!-- ═══ MODAL: Shopping List Name ═══ -->
+<div class="modal-overlay" id="shoppingNameModal" style="display:none" onclick="if(event.target===this)closeShoppingNameModal()">
+  <div class="modal-box" style="padding-bottom:28px">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="shoppingNameModalTitle">רשימה חדשה</div>
+      <button class="modal-close" onclick="closeShoppingNameModal()">✕</button>
+    </div>
+    <div class="field">
+      <div class="field-label">שם הרשימה</div>
+      <input type="text" class="field-input" id="shoppingListNameInput" placeholder="קניות שבועיות, מסיבה..." onkeydown="if(event.key==='Enter')submitShoppingListName()">
+    </div>
+    <button class="cta-btn" style="position:static;width:100%;margin:14px 0 0" onclick="submitShoppingListName()">
+      <span id="shoppingNameSubmitLabel">צור רשימה ✓</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Add/Edit Task ═══ -->
+<div class="modal-overlay" id="taskModal" style="display:none" onclick="if(event.target===this)closeTaskModal()">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="taskModalTitle">משימה חדשה</div>
+      <button class="modal-close" onclick="closeTaskModal()">✕</button>
+    </div>
+    <div class="field">
+      <div class="field-label">כותרת המשימה *</div>
+      <input type="text" class="field-input" id="fTitle" placeholder="מה צריך לעשות?">
+    </div>
+    <div class="field">
+      <div class="field-label">תיאור</div>
+      <textarea class="field-input" id="fDesc" placeholder="פרטים נוספים..."></textarea>
+    </div>
+    <div class="field-row" style="margin-bottom:13px">
+      <div class="field">
+        <div class="field-label">תאריך יעד</div>
+        <input type="date" class="field-input" id="fDue">
+      </div>
+      <div class="field">
+        <div class="field-label">שעת תזכורת</div>
+        <input type="time" class="field-input" id="fReminder">
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">עדיפות</div>
+      <div class="prio-picker">
+        <button class="prio-opt selected-low" id="prioLow" onclick="setPrio('low')">🔵 נמוכה</button>
+        <button class="prio-opt" id="prioMedium" onclick="setPrio('medium')">🟡 בינונית</button>
+        <button class="prio-opt" id="prioHigh" onclick="setPrio('high')">🔴 גבוהה</button>
+      </div>
+    </div>
+    <div class="field-row" style="margin-bottom:13px">
+      <div class="field">
+        <div class="field-label">קטגוריה</div>
+        <select class="field-input" id="fCategory">
+          <option value="personal">👤 אישי</option>
+          <option value="work">💼 עבודה</option>
+          <option value="health">💊 בריאות</option>
+          <option value="finance">💰 כספים</option>
+          <option value="shopping">🛍️ קניות</option>
+          <option value="education">📚 לימודים</option>
+          <option value="home">🏠 בית</option>
+          <option value="other">📦 אחר</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="field-label">יעד מקושר</div>
+        <select class="field-input" id="fGoal">
+          <option value="">ללא יעד</option>
+        </select>
+      </div>
+    </div>
+    <div id="taskFormError" style="font-size:12px;color:var(--red);margin-bottom:10px;display:none"></div>
+    <button class="cta-btn" style="position:static;width:100%;margin:0" onclick="submitTask()">
+      <span id="taskSubmitLabel">הוסף משימה ✓</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Add/Edit Goal ═══ -->
+<div class="modal-overlay" id="goalModal" style="display:none" onclick="if(event.target===this)closeGoalModal()">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="goalModalTitle">יעד חדש</div>
+      <button class="modal-close" onclick="closeGoalModal()">✕</button>
+    </div>
+    <div class="field">
+      <div class="field-label">שם היעד *</div>
+      <input type="text" class="field-input" id="gName" placeholder="לאן אתה שואף?">
+    </div>
+    <div class="field">
+      <div class="field-label">תיאור</div>
+      <input type="text" class="field-input" id="gDesc" placeholder="תאר את היעד בקצרה">
+    </div>
+    <div class="field-row" style="margin-bottom:13px">
+      <div class="field">
+        <div class="field-label">תאריך יעד</div>
+        <input type="date" class="field-input" id="gDeadline">
+      </div>
+      <div class="field">
+        <div class="field-label">אימוג'י</div>
+        <input type="text" class="field-input" id="gEmoji" placeholder="🎯" maxlength="2">
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">צבע</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="prio-opt selected-low" id="gc-teal" onclick="setGoalColor('var(--accent)')" style="flex:none;padding:7px 14px">🟢 ירוק</button>
+        <button class="prio-opt" id="gc-blue" onclick="setGoalColor('var(--blue)')" style="flex:none;padding:7px 14px">🔵 כחול</button>
+        <button class="prio-opt" id="gc-orange" onclick="setGoalColor('var(--orange)')" style="flex:none;padding:7px 14px">🟠 כתום</button>
+        <button class="prio-opt" id="gc-purple" onclick="setGoalColor('var(--purple)')" style="flex:none;padding:7px 14px">🟣 סגול</button>
+      </div>
+    </div>
+    <div id="goalFormError" style="font-size:12px;color:var(--red);margin-bottom:10px;display:none"></div>
+    <button class="cta-btn" style="position:static;width:100%;margin:0;margin-top:14px" onclick="submitGoal()">
+      <span id="goalSubmitLabel">צור יעד ✓</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Confirm Delete ═══ -->
+<div class="modal-overlay" id="confirmModal" style="display:none" onclick="if(event.target===this)closeConfirm()">
+  <div class="modal-box" style="padding-bottom:30px">
+    <div class="modal-handle"></div>
+    <div class="confirm-body">
+      <div class="confirm-title" id="confirmTitle">מחיקה?</div>
+      <div class="confirm-sub" id="confirmSub">פעולה זו אינה ניתנת לביטול.</div>
+      <div class="confirm-btns">
+        <button class="btn-cancel" onclick="closeConfirm()">ביטול</button>
+        <button class="btn-danger" onclick="confirmDeleteAction()">מחק</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PWA Install -->
+<div id="installBanner" style="display:none">
+  <div class="install-overlay" onclick="dismissInstall()"></div>
+  <div class="install-card">
+    <div class="install-icon-wrap">
+      <img src="icon-192.png" class="install-icon" alt="TaskFlow">
+      <div class="install-icon-glow"></div>
+    </div>
+    <div class="install-title">התקן את TaskFlow</div>
+    <div class="install-sub">הוסף למסך הבית לגישה מהירה ועבודה ללא אינטרנט</div>
+    <div class="install-feats">
+      <span class="install-feat">⚡ מהיר</span>
+      <span class="install-feat">📴 אופליין</span>
+      <span class="install-feat">🔔 התראות</span>
+    </div>
+    <button class="install-btn-ok" onclick="doInstall()">התקן עכשיו</button>
+    <button class="install-btn-dismiss" onclick="dismissInstall()">אולי מאוחר יותר</button>
+  </div>
+</div>
+<div id="iosHint" style="display:none">
+  <div class="ios-hint-card">
+    <img src="icon-192.png" class="ios-hint-icon" alt="">
+    <div class="ios-hint-text">
+      <strong>הוסף למסך הבית</strong>
+      <span>לחץ <strong>שתף</strong> ← <strong>הוסף למסך הבית</strong></span>
+    </div>
+    <button class="ios-hint-close" onclick="document.getElementById('iosHint').style.display='none'">✕</button>
+  </div>
+</div>
+
+
+<!-- ═══ UPDATE BANNER ═══ -->
+<div id="updateBanner" style="display:none" class="update-banner">
+  <div class="update-banner-inner">
+    <div class="update-icon">🚀</div>
+    <div class="update-text">
+      <strong>גרסה חדשה זמינה!</strong>
+      <span>עדכון TaskFlow מוכן להתקנה</span>
+    </div>
+    <div class="update-actions">
+      <button class="update-btn-ok" onclick="applyUpdate()">עדכן</button>
+      <button class="update-btn-dismiss" onclick="dismissUpdate()">✕</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ NOTIFICATION PERMISSION PROMPT ═══ -->
+<div id="notifPrompt" style="display:none" class="modal-overlay" onclick="if(event.target===this)dismissNotifPrompt()">
+  <div class="modal-box" style="padding-bottom:30px">
+    <div class="modal-handle"></div>
+    <div style="text-align:center;padding:8px 0 20px">
+      <div style="font-size:48px;margin-bottom:14px">🔔</div>
+      <div style="font-size:19px;font-weight:900;margin-bottom:8px">אפשר התראות?</div>
+      <div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:24px">
+        TaskFlow תשלח לך תזכורות לפי השעה שהגדרת בכל משימה — גם כשהאפליקציה ממוזערת.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button onclick="acceptNotifPrompt()" style="padding:15px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#00c8ff);border:none;color:#0a141e;font-size:16px;font-weight:800;font-family:'Heebo',sans-serif;cursor:pointer;box-shadow:0 8px 24px rgba(0,210,150,0.3)">
+          🔔 אפשר התראות
+        </button>
+        <button onclick="dismissNotifPrompt()" style="padding:12px;border-radius:14px;background:transparent;border:1px solid var(--border2);color:var(--text3);font-size:14px;font-family:'Heebo',sans-serif;cursor:pointer">
+          לא תודה
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SHARE MODAL ═══ -->
+<div id="shareModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeShareModal()">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">🔗 שתף רשימת קניות</div>
+      <button class="modal-close" onclick="closeShareModal()">✕</button>
+    </div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">שלח את הקוד הבא לחבר/ה — הם יקלידו אותו בתוך האפליקציה:</div>
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:18px;margin-bottom:14px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">קוד שיתוף</div>
+        <div id="shareCode" style="font-size:38px;font-weight:900;letter-spacing:8px;color:var(--accent);font-family:'DM Mono',monospace">------</div>
+        <div id="shareListNameLabel" style="font-size:12px;color:var(--text2);margin-top:8px"></div>
+      </div>
+      <button class="cta-btn" style="position:static;width:100%;margin:0" onclick="copyShareCode()">📋 העתק קוד</button>
+      <div id="shareCopied" style="text-align:center;margin-top:10px;font-size:13px;color:var(--accent);display:none">✅ הקוד הועתק!</div>
+    </div>
+    <div style="padding:12px;background:var(--blue-dim);border-radius:var(--radius-sm);font-size:12px;color:var(--text2);border:1px solid rgba(59,158,255,0.2)">
+      💡 החבר/ה פותח/ת את האפליקציה ← לוחץ/ת <strong>🤝 הצטרף</strong> ← מקליד/ה את הקוד
+    </div>
+  </div>
+</div>
+
+<!-- ═══ JOIN MODAL ═══ -->
+<div id="joinModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeJoinModal()">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">🤝 הצטרף לרשימה משותפת</div>
+      <button class="modal-close" onclick="closeJoinModal()">✕</button>
+    </div>
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:14px;color:var(--text2);margin-bottom:16px">הכנס את הקוד שקיבלת:</div>
+      <input id="joinCodeInput" type="text" class="field-input"
+        placeholder="AB12CD"
+        style="font-size:30px;font-weight:900;letter-spacing:8px;text-align:center;font-family:'DM Mono',monospace;color:var(--accent);text-transform:uppercase"
+        maxlength="6"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
+        onkeydown="if(event.key==='Enter')joinByCode()">
+    </div>
+    <div id="joinError" style="text-align:center;font-size:13px;color:var(--red);margin-bottom:12px;display:none"></div>
+    <button class="cta-btn" style="position:static;width:100%;margin:0" onclick="joinByCode()" id="joinBtn">הצטרף ✓</button>
+  </div>
+</div>
+
+<!-- ═══ SHARED BANNER ═══ -->
+<div id="sharedBanner" style="display:none;position:sticky;top:0;z-index:100;background:linear-gradient(135deg,rgba(59,158,255,0.15),rgba(59,158,255,0.05));border-bottom:1px solid rgba(59,158,255,0.25);padding:10px 16px;font-size:13px;color:var(--blue);text-align:center">
+  🔗 רשימה משותפת: <strong id="sharedBannerName"></strong>
+  <button onclick="exitSharedView()" style="margin-right:10px;font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--blue);background:transparent;color:var(--blue);cursor:pointer;font-family:'Heebo',sans-serif">יציאה</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════
+const TASKS_KEY = 'tf_tasks_v1';
+const GOALS_KEY = 'tf_goals_v1';
+const NOTIFS_KEY = 'tf_notifs_v1';
+
+const CATS = {
+  personal:  { label:'👤 אישי',    color:'var(--blue)' },
+  work:      { label:'💼 עבודה',   color:'var(--purple)' },
+  health:    { label:'💊 בריאות',  color:'var(--red)' },
+  finance:   { label:'💰 כספים',   color:'var(--accent)' },
+  shopping:  { label:'🛍️ קניות',  color:'var(--orange)' },
+  education: { label:'📚 לימודים', color:'var(--yellow)' },
+  home:      { label:'🏠 בית',     color:'var(--blue)' },
+  other:     { label:'📦 אחר',     color:'var(--text3)' },
+};
+const PRIO_COLORS = { low:'var(--blue)', medium:'var(--yellow)', high:'var(--red)' };
+
+let tasks = [], goals = [], notifications = [];
+let editingTaskId = null, editingGoalId = null;
+let deletingId = null, deletingType = null;
+const SHOPPING_KEY = 'tf_shopping_v1';
+let shoppingLists = [];
+let activeListId = null;
+let editingShoppingListId = null;
+let taskFilter = 'all';
+let selectedCalDay = null;
+let formPrio = 'low', formGoalColor = 'var(--accent)';
+let deferredPrompt = null;
+
+// ─── Persistence ──────────────────────────
+function saveTasks() { try { localStorage.setItem(TASKS_KEY, JSON.stringify(tasks)); } catch(e){} }
+function saveGoals() { try { localStorage.setItem(GOALS_KEY, JSON.stringify(goals)); } catch(e){} }
+function saveNotifs() { try { localStorage.setItem(NOTIFS_KEY, JSON.stringify(notifications.slice(-50))); } catch(e){} }
+
+function loadAll() {
+  try { tasks = JSON.parse(localStorage.getItem(TASKS_KEY)) || []; } catch(e){ tasks = []; }
+  try { goals = JSON.parse(localStorage.getItem(GOALS_KEY)) || []; } catch(e){ goals = []; }
+  try { notifications = JSON.parse(localStorage.getItem(NOTIFS_KEY)) || []; } catch(e){ notifications = []; }
+  if (!tasks.length && !goals.length) loadSampleData();
+}
+
+function loadSampleData() {
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
+  const yesterday = new Date(Date.now()-86400000).toISOString().split('T')[0];
+  goals = [
+    { id:'g1', name:'כושר גופני', desc:'להתאמן 4 פעמים בשבוע', deadline:'2025-12-31', emoji:'💪', color:'var(--accent)', createdAt: Date.now() },
+    { id:'g2', name:'לימוד שפה', desc:'ללמוד 30 מילים חדשות ביום', deadline:'2025-09-01', emoji:'🗣️', color:'var(--blue)', createdAt: Date.now() },
+  ];
+  tasks = [
+    { id:'t1', title:'קריאת מיילים', desc:'', due:today, reminder:'09:00', priority:'high', category:'work', goalId:'', done:false, createdAt:Date.now() },
+    { id:'t2', title:'אימון בחדר כושר', desc:'שעה אירובי + משקולות', due:today, reminder:'18:00', priority:'medium', category:'health', goalId:'g1', done:false, createdAt:Date.now() },
+    { id:'t3', title:'קניות סופר', desc:'חלב, לחם, ירקות', due:today, reminder:'', priority:'low', category:'shopping', goalId:'', done:true, createdAt:Date.now() },
+    { id:'t4', title:'ישיבת צוות', desc:'הכנת מצגת Q3', due:tomorrow, reminder:'10:00', priority:'high', category:'work', goalId:'', done:false, createdAt:Date.now() },
+    { id:'t5', title:'תרגול שפה', desc:'30 מילים חדשות', due:yesterday, reminder:'', priority:'medium', category:'education', goalId:'g2', done:false, createdAt:Date.now() },
+  ];
+  saveTasks(); saveGoals();
+}
+
+// ─── Helpers ──────────────────────────────
+const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('he-IL',{day:'2-digit',month:'short'}) : '';
+const today = () => new Date().toISOString().split('T')[0];
+const tomorrow = () => new Date(Date.now()+86400000).toISOString().split('T')[0];
+
+function dueCls(due) {
+  if (!due) return '';
+  if (due < today()) return 'overdue';
+  if (due === today()) return 'today';
+  if (due === tomorrow()) return 'soon';
+  return '';
+}
+function dueLabel(due) {
+  if (!due) return '';
+  if (due < today()) return '⚠️ באיחור';
+  if (due === today()) return '📅 היום';
+  if (due === tomorrow()) return '⏰ מחר';
+  return fmt(due);
+}
+
+// ─── Render helpers ───────────────────────
+function taskHTML(t, showActions=true) {
+  const cat = CATS[t.category] || CATS.other;
+  const dCls = dueCls(t.due);
+  const dLbl = dueLabel(t.due);
+  const acts = showActions ? `
+    <div class="task-actions">
+      <button class="task-act" onclick="openEditTask('${t.id}')">✏️</button>
+      <button class="task-act del" onclick="openConfirm('task','${t.id}','${escH(t.title)}')">🗑️</button>
+    </div>` : '';
+  return `<div class="task-item ${t.done?'done':''}">
+    <div class="prio-dot" style="background:${PRIO_COLORS[t.priority]}"></div>
+    <div class="task-check ${t.done?'checked':''}" onclick="toggleTask('${t.id}')"></div>
+    <div class="task-body">
+      <div class="task-title">${escH(t.title)}</div>
+      <div class="task-meta">
+        <span class="task-tag" style="background:${cat.color.replace('var(','').replace(')','')};background:${cat.color}22;color:${cat.color}">${cat.label}</span>
+        ${dLbl ? `<span class="task-due ${dCls}">${dLbl}</span>` : ''}
+        ${t.goalId ? `<span class="task-tag" style="background:var(--purple-dim);color:var(--purple)">🎯</span>` : ''}
+      </div>
+    </div>
+    ${acts}
+  </div>`;
+}
+
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function renderAll() {
+  renderStats();
+  renderToday();
+  renderAll_tab();
+  renderGoals();
+  renderCalendar();
+  updateProgress();
+  renderNotifs();
+}
+
+function renderStats() {
+  const all = tasks;
+  const done = all.filter(t=>t.done).length;
+  const overdue = all.filter(t=>!t.done && t.due && t.due < today()).length;
+  const todayTasks = all.filter(t=>!t.done && t.due === today()).length;
+  document.getElementById('statTotal').textContent = all.length;
+  document.getElementById('statDone').textContent = done;
+  document.getElementById('statOverdue').textContent = overdue;
+  document.getElementById('statToday').textContent = todayTasks;
+}
+
+function renderToday() {
+  const d = new Date();
+  document.getElementById('todayDate').textContent = d.toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'});
+
+  const todayList = tasks.filter(t => t.due === today()).sort((a,b)=>(a.done?1:-1)+(b.done?-1:1));
+  const urgentList = tasks.filter(t => !t.done && (t.due < today() || t.due === tomorrow())).sort((a,b)=>a.due.localeCompare(b.due));
+
+  document.getElementById('todayCount').textContent = todayList.length;
+  document.getElementById('urgentCount').textContent = urgentList.length;
+
+  document.getElementById('todayList').innerHTML = todayList.length
+    ? todayList.map(t=>taskHTML(t)).join('')
+    : '<div class="empty"><div class="empty-icon">✅</div><p>אין משימות להיום</p><small>לחץ + להוסיף</small></div>';
+
+  document.getElementById('urgentList').innerHTML = urgentList.length
+    ? urgentList.map(t=>taskHTML(t)).join('')
+    : '<div class="empty"><div class="empty-icon">🎉</div><p>אין משימות דחופות</p></div>';
+}
+
+function renderAll_tab() {
+  let list = [...tasks];
+  if (taskFilter === 'active') list = list.filter(t=>!t.done);
+  else if (taskFilter === 'done') list = list.filter(t=>t.done);
+  else if (taskFilter === 'high') list = list.filter(t=>t.priority==='high' && !t.done);
+  list.sort((a,b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const pOrder = {high:0,medium:1,low:2};
+    return (pOrder[a.priority]||2)-(pOrder[b.priority]||2);
+  });
+  document.getElementById('allCount').textContent = list.length;
+  document.getElementById('allList').innerHTML = list.length
+    ? list.map(t=>taskHTML(t)).join('')
+    : '<div class="empty"><div class="empty-icon">📋</div><p>אין משימות</p></div>';
+}
+
+function renderGoals() {
+  const el = document.getElementById('goalsList');
+  if (!goals.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🎯</div><p>אין יעדים עדיין</p><small>לחץ + להוסיף יעד ראשון</small></div>';
+    return;
+  }
+  el.innerHTML = goals.map(g => {
+    const linked = tasks.filter(t => t.goalId === g.id);
+    const done = linked.filter(t => t.done).length;
+    const pct = linked.length ? Math.round(done/linked.length*100) : 0;
+    const daysLeft = g.deadline ? Math.ceil((new Date(g.deadline)-new Date())/86400000) : null;
+    return `<div class="goal-card">
+      <div class="goal-top">
+        <div>
+          <div class="goal-name">${escH(g.name)}</div>
+          <div class="goal-date">${g.deadline ? (daysLeft > 0 ? `עוד ${daysLeft} ימים` : daysLeft === 0 ? '⚡ היום!' : '⚠️ עבר הזמן') : 'ללא תאריך'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="goal-badge">${g.emoji||'🎯'}</div>
+          <button class="task-act" onclick="openEditGoal('${g.id}');event.stopPropagation()">✏️</button>
+          <button class="task-act del" onclick="openConfirm('goal','${g.id}','${escH(g.name)}');event.stopPropagation()">🗑️</button>
+        </div>
+      </div>
+      <div class="goal-progress"><div class="goal-fill" style="width:${pct}%;background:${g.color||'var(--accent)'}"></div></div>
+      <div class="goal-stats">
+        <span>${done}/${linked.length} משימות</span>
+        <span class="goal-pct" style="color:${g.color||'var(--accent)'}">${pct}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCalendar() {
+  const now = new Date();
+  document.getElementById('calMonthLabel').textContent = now.toLocaleDateString('he-IL',{month:'long',year:'numeric'});
+  const strip = document.getElementById('calStrip');
+  const days = ['א','ב','ג','ד','ה','ו','ש'];
+  const todayStr = today();
+  if (!selectedCalDay) selectedCalDay = todayStr;
+
+  let html = '';
+  for (let i = -3; i <= 14; i++) {
+    const d = new Date(now); d.setDate(now.getDate()+i);
+    const ds = d.toISOString().split('T')[0];
+    const dayName = days[d.getDay()];
+    const dayNum = d.getDate();
+    const hasTasks = tasks.some(t => t.due === ds);
+    const cls = [
+      ds === todayStr ? 'today' : '',
+      ds === selectedCalDay ? 'selected' : '',
+      hasTasks ? 'has-tasks' : ''
+    ].filter(Boolean).join(' ');
+    html += `<div class="cal-day ${cls}" onclick="selectCalDay('${ds}')">
+      <div class="cal-dname">${dayName}</div>
+      <div class="cal-dnum">${dayNum}</div>
+    </div>`;
+  }
+  strip.innerHTML = html;
+  renderCalDay();
+}
+
+function selectCalDay(ds) {
+  selectedCalDay = ds;
+  renderCalendar();
+}
+
+function renderCalDay() {
+  if (!selectedCalDay) return;
+  const d = new Date(selectedCalDay+'T00:00:00');
+  const label = d.toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('calDayLabel').textContent = label;
+  const list = tasks.filter(t => t.due === selectedCalDay).sort((a,b)=>(a.done?1:-1));
+  document.getElementById('calDayCount').textContent = list.length;
+  document.getElementById('calDayList').innerHTML = list.length
+    ? list.map(t=>taskHTML(t)).join('')
+    : '<div class="empty"><div class="empty-icon">📅</div><p>אין משימות ביום זה</p></div>';
+}
+
+function updateProgress() {
+  const todayTasks = tasks.filter(t => t.due === today());
+  const done = todayTasks.filter(t => t.done).length;
+  const pct = todayTasks.length ? Math.round(done/todayTasks.length*100) : 0;
+  document.getElementById('progressPct').textContent = pct+'%';
+  document.getElementById('progressFill').style.width = pct+'%';
+}
+
+// ═══════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════
+function toggleTask(id) {
+  const t = tasks.find(x=>x.id===id);
+  if (!t) return;
+  t.done = !t.done;
+  if (t.done) addNotif('✅ הושלמה', t.title, 'var(--accent)');
+  saveTasks(); renderAll();
+  showToast(t.done ? '✅ משימה הושלמה!' : '↩️ משימה הוחזרה');
+}
+
+function setTaskFilter(f, btn) {
+  taskFilter = f;
+  document.querySelectorAll('#tab-all .tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAll_tab();
+}
+
+// ═══════════════════════════════════════════
+// TASK FORM
+// ═══════════════════════════════════════════
+function openAddTask() {
+  editingTaskId = null;
+  document.getElementById('taskModalTitle').textContent = 'משימה חדשה';
+  document.getElementById('taskSubmitLabel').textContent = 'הוסף משימה ✓';
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fDesc').value = '';
+  document.getElementById('fDue').value = today();
+  document.getElementById('fReminder').value = '';
+  document.getElementById('fCategory').value = 'personal';
+  setPrio('low');
+  populateGoalSelect('');
+  document.getElementById('taskFormError').style.display = 'none';
+  document.getElementById('taskModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('fTitle').focus(),300);
+}
+
+function openEditTask(id) {
+  const t = tasks.find(x=>x.id===id);
+  if (!t) return;
+  editingTaskId = id;
+  document.getElementById('taskModalTitle').textContent = 'עריכת משימה';
+  document.getElementById('taskSubmitLabel').textContent = 'שמור שינויים ✓';
+  document.getElementById('fTitle').value = t.title;
+  document.getElementById('fDesc').value = t.desc || '';
+  document.getElementById('fDue').value = t.due || '';
+  document.getElementById('fReminder').value = t.reminder || '';
+  document.getElementById('fCategory').value = t.category || 'personal';
+  setPrio(t.priority || 'low');
+  populateGoalSelect(t.goalId || '');
+  document.getElementById('taskFormError').style.display = 'none';
+  document.getElementById('taskModal').style.display = 'flex';
+}
+
+function populateGoalSelect(selected) {
+  const sel = document.getElementById('fGoal');
+  sel.innerHTML = '<option value="">ללא יעד</option>' +
+    goals.map(g=>`<option value="${g.id}" ${g.id===selected?'selected':''}>${g.emoji||'🎯'} ${escH(g.name)}</option>`).join('');
+}
+
+function setPrio(p) {
+  formPrio = p;
+  ['low','medium','high'].forEach(x => {
+    const btn = document.getElementById('prio'+x.charAt(0).toUpperCase()+x.slice(1));
+    btn.className = 'prio-opt' + (x===p ? ` selected-${x}` : '');
+  });
+}
+
+function closeTaskModal() { document.getElementById('taskModal').style.display='none'; }
+
+function submitTask() {
+  const title = document.getElementById('fTitle').value.trim();
+  const errEl = document.getElementById('taskFormError');
+  if (!title) { errEl.textContent='יש להזין כותרת'; errEl.style.display='block'; return; }
+  errEl.style.display='none';
+  const t = {
+    title, desc: document.getElementById('fDesc').value.trim(),
+    due: document.getElementById('fDue').value,
+    reminder: document.getElementById('fReminder').value,
+    priority: formPrio,
+    category: document.getElementById('fCategory').value,
+    goalId: document.getElementById('fGoal').value,
+    done: editingTaskId ? (tasks.find(x=>x.id===editingTaskId)||{}).done||false : false,
+  };
+  if (editingTaskId) {
+    t.id = editingTaskId; t.createdAt = (tasks.find(x=>x.id===editingTaskId)||{}).createdAt||Date.now();
+    tasks = tasks.map(x=>x.id===editingTaskId?t:x);
+    showToast('✏️ משימה עודכנה');
+  } else {
+    t.id = 'T'+Date.now(); t.createdAt = Date.now();
+    tasks.unshift(t);
+    addNotif('➕ נוספה משימה', title, 'var(--blue)');
+    showToast('✅ משימה נוספה!');
+    scheduleReminder(t);
+  }
+  saveTasks(); closeTaskModal(); renderAll();
+}
+
+// ─── Reminders ────────────────────────────
+function scheduleReminder(t) {
+  if (!t.reminder || !t.due || t.done) return;
+  const remTime = new Date(t.due + 'T' + t.reminder + ':00');
+  const diff = remTime.getTime() - Date.now();
+  if (diff <= 0 || diff > 86400000 * 7) return;
+
+  setTimeout(() => {
+    const task = tasks.find(x => x.id === t.id);
+    if (!task || task.done) return;
+    addNotif('⏰ תזכורת', task.title, 'var(--yellow)');
+    showToast('⏰ ' + task.title);
+    if (Notification.permission === 'granted') {
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_REMINDER', title: task.title, taskId: task.id
+        });
+      } else {
+        new Notification('⏰ TaskFlow — תזכורת', { body: task.title, icon: 'icon-192.png' });
+      }
+    }
+  }, diff);
+}
+
+function triggerNativeNotif(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  // Use SW to show notification (works even when app is in background)
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, {
+        body,
+        icon: 'icon-192.png',
+        badge: 'icon-192.png',
+        vibrate: [200, 100, 200],
+        tag: 'taskflow-reminder',
+        renotify: true,
+        actions: [{ action: 'open', title: 'פתח' }, { action: 'dismiss', title: 'סגור' }]
+      });
+    });
+  } else {
+    new Notification(title, { body, icon: 'icon-192.png' });
+  }
+}
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) return false;
+  // Notifications don't work on file:// — need https
+  if (location.protocol === 'file:') {
+    showToast('⚠️ התראות דורשות https — העלה ל-Netlify');
+    return false;
+  }
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  // Show friendly in-app prompt before triggering browser dialog
+  const granted = await showNotifPrompt();
+  return granted;
+}
+
+function showNotifPrompt() {
+  return new Promise(resolve => {
+    document.getElementById('notifPrompt').style.display = 'flex';
+    window._notifPromptResolve = resolve;
+  });
+}
+
+async function acceptNotifPrompt() {
+  document.getElementById('notifPrompt').style.display = 'none';
+  const result = await Notification.requestPermission();
+  if (result === 'granted') {
+    showToast('🔔 התראות אופשרו!');
+    addNotif('🔔 התראות מופעלות', 'תקבל תזכורות לכל משימה שמוגדרת עם שעה', 'var(--accent)');
+    renderNotifs();
+  }
+  if (window._notifPromptResolve) { window._notifPromptResolve(result === 'granted'); window._notifPromptResolve = null; }
+}
+
+function dismissNotifPrompt() {
+  document.getElementById('notifPrompt').style.display = 'none';
+  localStorage.setItem('tf_notif_dismissed', '1');
+  if (window._notifPromptResolve) { window._notifPromptResolve(false); window._notifPromptResolve = null; }
+}
+
+// ═══════════════════════════════════════════
+// GOAL FORM
+// ═══════════════════════════════════════════
+function openAddGoal() {
+  editingGoalId = null;
+  document.getElementById('goalModalTitle').textContent = 'יעד חדש';
+  document.getElementById('goalSubmitLabel').textContent = 'צור יעד ✓';
+  document.getElementById('gName').value = '';
+  document.getElementById('gDesc').value = '';
+  document.getElementById('gDeadline').value = '';
+  document.getElementById('gEmoji').value = '🎯';
+  setGoalColor('var(--accent)');
+  document.getElementById('goalFormError').style.display='none';
+  document.getElementById('goalModal').style.display='flex';
+  setTimeout(()=>document.getElementById('gName').focus(),300);
+}
+
+function openEditGoal(id) {
+  const g = goals.find(x=>x.id===id);
+  if (!g) return;
+  editingGoalId = id;
+  document.getElementById('goalModalTitle').textContent = 'עריכת יעד';
+  document.getElementById('goalSubmitLabel').textContent = 'שמור שינויים ✓';
+  document.getElementById('gName').value = g.name;
+  document.getElementById('gDesc').value = g.desc||'';
+  document.getElementById('gDeadline').value = g.deadline||'';
+  document.getElementById('gEmoji').value = g.emoji||'🎯';
+  setGoalColor(g.color||'var(--accent)');
+  document.getElementById('goalFormError').style.display='none';
+  document.getElementById('goalModal').style.display='flex';
+}
+
+function setGoalColor(c) {
+  formGoalColor = c;
+  const map = {'var(--accent)':'teal','var(--blue)':'blue','var(--orange)':'orange','var(--purple)':'purple'};
+  Object.entries(map).forEach(([v,id]) => {
+    const btn = document.getElementById('gc-'+id);
+    if (!btn) return;
+    btn.className = 'prio-opt' + (v===c ? ' selected-low' : '');
+    if (v===c) btn.style.borderColor = v; else btn.style.borderColor='';
+  });
+}
+
+function closeGoalModal() { document.getElementById('goalModal').style.display='none'; }
+
+function submitGoal() {
+  const name = document.getElementById('gName').value.trim();
+  const errEl = document.getElementById('goalFormError');
+  if (!name) { errEl.textContent='יש להזין שם יעד'; errEl.style.display='block'; return; }
+  errEl.style.display='none';
+  const g = {
+    name, desc: document.getElementById('gDesc').value.trim(),
+    deadline: document.getElementById('gDeadline').value,
+    emoji: document.getElementById('gEmoji').value || '🎯',
+    color: formGoalColor,
+  };
+  if (editingGoalId) {
+    g.id = editingGoalId; g.createdAt = (goals.find(x=>x.id===editingGoalId)||{}).createdAt||Date.now();
+    goals = goals.map(x=>x.id===editingGoalId?g:x);
+    showToast('✏️ יעד עודכן');
+  } else {
+    g.id = 'G'+Date.now(); g.createdAt = Date.now();
+    goals.push(g);
+    showToast('🎯 יעד חדש נוצר!');
+  }
+  saveGoals(); closeGoalModal(); renderAll();
+}
+
+// ═══════════════════════════════════════════
+// DELETE
+// ═══════════════════════════════════════════
+function openConfirm(type, id, name) {
+  deletingId = id; deletingType = type;
+  document.getElementById('confirmTitle').textContent = type==='task' ? 'מחק משימה?' : 'מחק יעד?';
+  document.getElementById('confirmSub').textContent = `"${name}" — פעולה זו אינה ניתנת לביטול.`;
+  document.getElementById('confirmModal').style.display='flex';
+}
+function closeConfirm() { deletingId=null; deletingType=null; document.getElementById('confirmModal').style.display='none'; }
+function confirmDeleteAction() {
+  if (deletingType==='task') { tasks=tasks.filter(x=>x.id!==deletingId); saveTasks(); showToast('🗑️ משימה נמחקה'); }
+  else { goals=goals.filter(x=>x.id!==deletingId); saveGoals(); showToast('🗑️ יעד נמחק'); }
+  closeConfirm(); renderAll();
+}
+
+// ═══════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════
+function addNotif(title, body, color) {
+  notifications.unshift({ id: Date.now().toString(), title, body, color, time: Date.now(), read: false });
+  notifications = notifications.slice(0,50);
+  saveNotifs();
+  // Update badge without re-rendering full list
+  const unread = notifications.filter(n => !n.read).length;
+  const badge = document.getElementById('notifBadge');
+  if (badge && unread > 0) {
+    badge.style.display = 'flex';
+    badge.textContent = unread > 9 ? '9+' : unread;
+  }
+  // If panel is open, re-render
+  if (document.getElementById('notifPanel').classList.contains('open')) renderNotifs();
+}
+
+function renderNotifs() {
+  const unread = notifications.filter(n => !n.read).length;
+  const badge = document.getElementById('notifBadge');
+  badge.style.display = unread > 0 ? 'block' : 'none';
+  if (unread > 0) badge.textContent = unread > 9 ? '9+' : unread;
+
+  const list = document.getElementById('notifList');
+  let html = '';
+
+  // Permission banner — shown if not granted
+  if ('Notification' in window && Notification.permission !== 'granted') {
+    const isDenied = Notification.permission === 'denied';
+    html += `<button class="notif-perm-btn" onclick="${isDenied ? 'showDeniedHelp()' : 'enableNotifs()'}">
+      <div class="notif-perm-icon">${isDenied ? '🚫' : '🔔'}</div>
+      <div class="notif-perm-text">
+        <strong>${isDenied ? 'התראות חסומות' : 'אפשר התראות'}</strong>
+        <span>${isDenied ? 'לחץ לראות איך לבטל את החסימה' : 'קבל תזכורות גם כשהאפליקציה ברקע'}</span>
+      </div>
+      <div class="notif-perm-arrow">${isDenied ? 'ℹ️' : '→'}</div>
+    </button>`;
+  }
+
+  if (!notifications.length) {
+    html += '<div class="empty" style="padding:16px 0"><div class="empty-icon">🔔</div><p>אין התראות עדיין</p></div>';
+    list.innerHTML = html;
+    return;
+  }
+
+  // Mark all as read when panel opens
+  notifications.forEach(n => n.read = true);
+  saveNotifs();
+  badge.style.display = 'none';
+
+  html += notifications.slice(0,15).map(n => {
+    const ago = Math.floor((Date.now()-n.time)/60000);
+    const agoStr = ago < 1 ? 'עכשיו' : ago < 60 ? `לפני ${ago} דק'` : ago < 1440 ? `לפני ${Math.floor(ago/60)} ש'` : `לפני ${Math.floor(ago/1440)} ימים`;
+    return `<div class="notif-item">
+      <div class="notif-dot" style="background:${n.color||'var(--accent)'}"></div>
+      <div class="notif-text"><strong>${escH(n.title)}</strong>${escH(n.body)}</div>
+      <div class="notif-time">${agoStr}</div>
+    </div>`;
+  }).join('');
+
+  list.innerHTML = html;
+}
+
+async function enableNotifs() {
+  const granted = await requestNotifPermission();
+  if (granted) { renderNotifs(); }
+}
+
+function showDeniedHelp() {
+  showToast('⚙️ הגדרות דפדפן ← אתרים ← notifications');
+  addNotif('🚫 התראות חסומות', 'פתח הגדרות דפדפן ← Site Settings ← Notifications ← Allow', 'var(--red)');
+  renderNotifs();
+}
+
+function clearNotifs() { notifications=[]; saveNotifs(); renderNotifs(); showToast('🔔 התראות נוקו'); }
+
+function toggleNotifPanel() {
+  const p = document.getElementById('notifPanel');
+  p.classList.toggle('open');
+  if (p.classList.contains('open')) renderNotifs();
+}
+
+// Close notif panel on outside click
+document.addEventListener('click', e => {
+  const panel = document.getElementById('notifPanel');
+  const btn = document.getElementById('notifBtn');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+});
+
+// ─── Check overdue daily ──────────────────
+function checkOverdue() {
+  const overdue = tasks.filter(t => !t.done && t.due && t.due < today());
+  if (overdue.length) {
+    addNotif('⚠️ משימות באיחור', `${overdue.length} משימות לא הושלמו`, 'var(--red)');
+  }
+}
+
+// ═══════════════════════════════════════════
+// TABS / THEME / TOAST
+// ═══════════════════════════════════════════
+function showTab(name, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (name==='calendar') renderCalendar();
+  if (name==='goals') renderGoals();
+  if (name==='shopping') renderShopping();
+  // Close notif panel
+  document.getElementById('notifPanel').classList.remove('open');
+}
+
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('themeBtn').textContent = isLight ? '🌞' : '🌙';
+  localStorage.setItem('tf_theme', isLight?'light':'dark');
+}
+function loadTheme() {
+  if (localStorage.getItem('tf_theme')==='light') {
+    document.body.classList.add('light');
+    document.getElementById('themeBtn').textContent = '🌞';
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════════
+// PWA
+// ═══════════════════════════════════════════
+let pendingSWUpdate = null;
+
+function initPWA() {
+  // SW only works over http/https — not file://
+  const isHTTP = location.protocol === 'https:' || location.protocol === 'http:';
+  if ('serviceWorker' in navigator && isHTTP) {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+
+      // ── Update detection ──────────────────
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // New version available!
+            pendingSWUpdate = newWorker;
+            showUpdateBanner();
+          }
+        });
+      });
+
+      // Check for update every time app is opened
+      reg.update().catch(() => {});
+
+      // ── Handle SW messages ────────────────
+      navigator.serviceWorker.addEventListener('message', e => {
+        if (e.data?.type === 'REMINDER_FIRED') {
+          addNotif('⏰ תזכורת', e.data.title, 'var(--yellow)');
+          renderNotifs();
+          showToast('⏰ ' + e.data.title);
+        }
+      });
+
+    }).catch(() => {});
+  }
+
+  // ── Install prompt ────────────────────────
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); deferredPrompt = e;
+    if (!localStorage.getItem('tf_install_dismissed')) {
+      setTimeout(showInstallBanner, 4000);
+    }
+  });
+
+  // ── iOS hint ─────────────────────────────
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isIOS && !window.navigator.standalone && !localStorage.getItem('tf_ios_dismissed')) {
+    setTimeout(() => { document.getElementById('iosHint').style.display = 'block'; }, 5000);
+  }
+
+  // ── Request notification permission ───────
+  // Small delay so user sees the app first
+  // Only auto-prompt if never dismissed and permission not yet set
+  if (!localStorage.getItem('tf_notif_dismissed') && 'Notification' in window && Notification.permission === 'default') {
+    setTimeout(requestNotifPermission, 3000);
+  }
+}
+
+// ── Install ───────────────────────────────
+function showInstallBanner() { document.getElementById('installBanner').style.display = 'block'; }
+function doInstall() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(r => {
+    if (r.outcome === 'accepted') showToast('✅ TaskFlow הותקן בהצלחה!');
+    deferredPrompt = null; dismissInstall();
+  });
+}
+function dismissInstall() {
+  document.getElementById('installBanner').style.display = 'none';
+  localStorage.setItem('tf_install_dismissed', '1');
+}
+
+// ── Update banner ─────────────────────────
+function showUpdateBanner() {
+  document.getElementById('updateBanner').style.display = 'flex';
+}
+function applyUpdate() {
+  if (pendingSWUpdate) {
+    pendingSWUpdate.postMessage({ type: 'SKIP_WAITING' });
+  }
+  // Reload once new SW takes control
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
+  document.getElementById('updateBanner').style.display = 'none';
+}
+function dismissUpdate() {
+  document.getElementById('updateBanner').style.display = 'none';
+}
+
+// ─── Keyboard ─────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') { closeTaskModal(); closeGoalModal(); closeConfirm(); document.getElementById('notifPanel').classList.remove('open'); }
+});
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+loadAll();
+loadShoppingLists();
+loadTheme();
+renderAll();
+checkOverdue();
+initPWA();
+rescheduleAllReminders();
+
+function rescheduleAllReminders() {
+  const now = Date.now();
+  tasks.forEach(t => {
+    if (t.done || !t.reminder || !t.due) return;
+    const fireAt = new Date(t.due + 'T' + t.reminder + ':00').getTime();
+    if (fireAt > now && fireAt - now < 86400000 * 7) {
+      scheduleReminder(t);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════
+// SHOPPING LISTS
+// ═══════════════════════════════════════════
+
+function saveShoppingLists() { try { localStorage.setItem(SHOPPING_KEY, JSON.stringify(shoppingLists)); } catch(e){} }
+function loadShoppingLists() {
+  try { shoppingLists = JSON.parse(localStorage.getItem(SHOPPING_KEY)) || []; } catch(e){ shoppingLists = []; }
+  if (shoppingLists.length) activeListId = shoppingLists.filter(l=>!l.completedAt).slice(-1)[0]?.id || shoppingLists[0].id;
+}
+
+// ─── Render shopping tab ───────────────────
+function renderShopping() {
+  renderShoppingListTabs();
+  renderActiveShoppingList();
+  renderShoppingHistory();
+}
+
+function renderShoppingListTabs() {
+  const active = shoppingLists.filter(l => !l.completedAt);
+  const tabs = document.getElementById('shoppingListTabs');
+  if (!active.length) {
+    tabs.innerHTML = '<span style="font-size:12px;color:var(--text3)">לחץ + ליצור רשימה, או פשוט הקלד פריט ולחץ הוסף</span>';
+    document.getElementById('shoppingActiveSection').style.display = 'none';
+    return;
+  }
+  // Make sure activeListId points to a valid active list
+  if (!activeListId || !active.find(l => l.id === activeListId)) {
+    activeListId = active[0].id;
+  }
+  tabs.innerHTML = active.map(l => {
+    const done = l.items.filter(i=>i.checked).length;
+    const total = l.items.length;
+    const isCurrent = l.id === activeListId;
+    return `<button class="tab ${isCurrent?'active':''}" style="font-size:11px;padding:6px 12px;white-space:nowrap" onclick="switchShoppingList('${l.id}')">
+      ${escH(l.name)} ${total ? `<span style="opacity:0.7">${done}/${total}</span>` : ''}
+    </button>`;
+  }).join('');
+}
+
+function renderActiveShoppingList() {
+  const section = document.getElementById('shoppingActiveSection');
+  if (!activeListId) { section.style.display = 'none'; return; }
+  const list = shoppingLists.find(l => l.id === activeListId);
+  if (!list) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  // Header
+  document.getElementById('shoppingListName').textContent = list.name;
+  const created = new Date(list.createdAt).toLocaleDateString('he-IL', {day:'2-digit',month:'short',year:'2-digit'});
+  document.getElementById('shoppingListMeta').textContent = `נוצרה ${created}${list.completedAt ? ' · ✅ בוצעה' : ''}`;
+
+  // Complete button
+  const completeBtn = document.getElementById('shoppingCompleteBtn');
+  completeBtn.style.display = list.completedAt ? 'none' : 'flex';
+
+  // Progress
+  const done = list.items.filter(i=>i.checked).length;
+  const total = list.items.length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('shoppingProgress').textContent = `${done}/${total} פריטים`;
+  document.getElementById('shoppingPct').textContent = pct + '%';
+  document.getElementById('shoppingProgressFill').style.width = pct + '%';
+
+  // Items
+  const itemsEl = document.getElementById('shoppingItemsList');
+  if (!list.items.length) {
+    itemsEl.innerHTML = '<div class="empty" style="padding:20px 0"><div class="empty-icon">🛍️</div><p>הרשימה ריקה</p><small>הקלד פריט למעלה והוסף</small></div>';
+    return;
+  }
+
+  // Sort: unchecked first
+  const sorted = [...list.items].sort((a,b) => (a.checked?1:-1) - (b.checked?1:-1));
+  itemsEl.innerHTML = sorted.map(item => `
+    <div class="task-item ${item.checked?'done':''}" style="gap:10px">
+      <div class="task-check ${item.checked?'checked':''}" onclick="toggleShoppingItem('${list.id}','${item.id}')"></div>
+      <div class="task-body" style="flex:1">
+        <div class="task-title" id="si-title-${item.id}">${escH(item.name)}</div>
+        ${item.qty ? `<div class="task-meta"><span class="task-tag" style="background:var(--surface3);color:var(--text3)">${escH(item.qty)}</span></div>` : ''}
+      </div>
+      <div class="task-actions" style="opacity:1">
+        <button class="task-act del" onclick="removeShoppingItem('${list.id}','${item.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderShoppingHistory() {
+  const done = shoppingLists.filter(l => l.completedAt).sort((a,b)=>b.completedAt-a.completedAt);
+  document.getElementById('shoppingHistoryCount').textContent = done.length;
+  const el = document.getElementById('shoppingHistoryList');
+  if (!done.length) { el.innerHTML = '<div class="empty" style="padding:20px 0"><div class="empty-icon">📜</div><p>אין היסטוריה עדיין</p></div>'; return; }
+  el.innerHTML = done.map(l => {
+    const completedDate = new Date(l.completedAt).toLocaleDateString('he-IL',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const total = l.items.length;
+    return `<div class="goal-card" onclick="viewHistoryList('${l.id}')">
+      <div class="goal-top">
+        <div>
+          <div class="goal-name">${escH(l.name)}</div>
+          <div class="goal-date">✅ בוצעה: ${completedDate}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="sec-count">${total} פריטים</span>
+          <button class="task-act" onclick="reopenShoppingList('${l.id}');event.stopPropagation()" title="פתח מחדש">♻️</button>
+          <button class="task-act del" onclick="deleteShoppingListById('${l.id}');event.stopPropagation()">🗑️</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px">${l.items.map(i=>`<span style="text-decoration:${i.checked?'line-through':''}">${escH(i.name)}</span>`).join(', ')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Actions ───────────────────────────────
+function switchShoppingList(id) { activeListId = id; renderShopping(); }
+
+function addShoppingItem() {
+  const input = document.getElementById('shoppingItemInput');
+  const raw = input.value.trim();
+  if (!raw) return;
+
+  // Auto-create a default list if none exists
+  if (!activeListId || !shoppingLists.find(l => l.id === activeListId && !l.completedAt)) {
+    const newList = { id: 'SL'+Date.now(), name: 'רשימת קניות', items: [], createdAt: Date.now(), completedAt: null };
+    shoppingLists.push(newList);
+    activeListId = newList.id;
+    saveShoppingLists();
+    renderShoppingListTabs();
+  }
+
+  const list = shoppingLists.find(l => l.id === activeListId);
+  if (!list) return;
+
+  // Support "2x חלב" or "חלב x2" patterns for qty
+  let name = raw, qty = '';
+  const qtyMatch = raw.match(/^(\d+[xX×]?\s+)(.+)|(.+)\s+[xX×](\d+)$/);
+  if (qtyMatch) { qty = (qtyMatch[1] || '').trim() || ('×' + qtyMatch[4]); name = qtyMatch[2] || qtyMatch[3]; }
+
+  list.items.push({ id: 'si'+Date.now(), name: name.trim(), qty, checked: false, addedAt: Date.now() });
+  input.value = '';
+  input.focus();
+  saveShoppingLists();
+  renderActiveShoppingList();
+  renderShoppingListTabs();
+  document.getElementById('shoppingActiveSection').style.display = 'block';
+}
+
+function toggleShoppingItem(listId, itemId) {
+  const list = shoppingLists.find(l=>l.id===listId);
+  if (!list) return;
+  const item = list.items.find(i=>i.id===itemId);
+  if (!item) return;
+  item.checked = !item.checked;
+  saveShoppingLists();
+  renderActiveShoppingList();
+  renderShoppingListTabs();
+  // Auto-complete if all checked
+  if (list.items.length && list.items.every(i=>i.checked) && !list.completedAt) {
+    setTimeout(()=>{ if (confirm('כל הפריטים סומנו! לסמן את הרשימה כבוצעה?')) completeShoppingList(); }, 400);
+  }
+}
+
+function removeShoppingItem(listId, itemId) {
+  const list = shoppingLists.find(l=>l.id===listId);
+  if (!list) return;
+  list.items = list.items.filter(i=>i.id!==itemId);
+  saveShoppingLists(); renderActiveShoppingList(); renderShoppingListTabs();
+}
+
+function completeShoppingList() {
+  const list = shoppingLists.find(l=>l.id===activeListId);
+  if (!list) return;
+  list.completedAt = Date.now();
+  // Pick next active list
+  const nextActive = shoppingLists.find(l=>!l.completedAt && l.id!==activeListId);
+  activeListId = nextActive?.id || null;
+  saveShoppingLists(); renderShopping();
+  showToast('✅ רשימת קניות הושלמה!');
+  addNotif('🛒 קניות', `"${list.name}" הושלמה — ${list.items.length} פריטים`, 'var(--accent)');
+}
+
+function reopenShoppingList(id) {
+  const list = shoppingLists.find(l=>l.id===id);
+  if (!list) return;
+  list.completedAt = null;
+  list.items.forEach(i=>i.checked=false);
+  activeListId = id;
+  saveShoppingLists(); renderShopping();
+  showToast('♻️ הרשימה נפתחה מחדש');
+}
+
+function deleteShoppingList() { deleteShoppingListById(activeListId); }
+function deleteShoppingListById(id) {
+  shoppingLists = shoppingLists.filter(l=>l.id!==id);
+  if (activeListId===id) activeListId = shoppingLists.find(l=>!l.completedAt)?.id || null;
+  saveShoppingLists(); renderShopping();
+  showToast('🗑️ רשימה נמחקה');
+}
+
+function viewHistoryList(id) {
+  const list = shoppingLists.find(l=>l.id===id);
+  if (!list) return;
+  activeListId = id;
+  document.getElementById('shoppingActiveSection').scrollIntoView({behavior:'smooth'});
+  renderActiveShoppingList();
+}
+
+// ─── New / rename list ─────────────────────
+function openNewShoppingList() {
+  editingShoppingListId = null;
+  document.getElementById('shoppingNameModalTitle').textContent = 'רשימה חדשה';
+  document.getElementById('shoppingNameSubmitLabel').textContent = 'צור רשימה ✓';
+  document.getElementById('shoppingListNameInput').value = '';
+  document.getElementById('shoppingNameModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('shoppingListNameInput').focus(),300);
+}
+
+function editShoppingListName() {
+  const list = shoppingLists.find(l=>l.id===activeListId);
+  if (!list) return;
+  editingShoppingListId = activeListId;
+  document.getElementById('shoppingNameModalTitle').textContent = 'שנה שם';
+  document.getElementById('shoppingNameSubmitLabel').textContent = 'שמור ✓';
+  document.getElementById('shoppingListNameInput').value = list.name;
+  document.getElementById('shoppingNameModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('shoppingListNameInput').focus(),300);
+}
+
+function closeShoppingNameModal() { document.getElementById('shoppingNameModal').style.display='none'; }
+
+function submitShoppingListName() {
+  const name = document.getElementById('shoppingListNameInput').value.trim();
+  if (!name) return;
+  if (editingShoppingListId) {
+    const list = shoppingLists.find(l=>l.id===editingShoppingListId);
+    if (list) { list.name = name; saveShoppingLists(); renderShopping(); showToast('✏️ שם עודכן'); }
+  } else {
+    const newList = { id:'SL'+Date.now(), name, items:[], createdAt:Date.now(), completedAt:null };
+    shoppingLists.push(newList);
+    activeListId = newList.id;
+    saveShoppingLists(); renderShopping();
+    showToast('🛒 רשימה חדשה נוצרה!');
+  }
+  closeShoppingNameModal();
+}
+
+// ═══════════════════════════════════════════
+// FIREBASE — שיתוף רשימות קניות
+// ═══════════════════════════════════════════
+
+const FIREBASE_DB_URL = 'https://task-share-9b5cc-default-rtdb.firebaseio.com';
+let sharedViewMode = false;
+let sharedListId = null;
+let firebaseListener = null;
+
+async function fbSet(path, data) {
+  const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('Firebase write failed');
+  return res.json();
+}
+
+async function fbGet(path) {
+  const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`);
+  if (!res.ok) throw new Error('Firebase read failed');
+  return res.json();
+}
+
+function fbListen(path, callback) {
+  fbStopListen();
+  const es = new EventSource(`${FIREBASE_DB_URL}/${path}.json`);
+  es.addEventListener('put', e => {
+    try { const msg = JSON.parse(e.data); if (msg && msg.data) callback(msg.data); } catch(err) {}
+  });
+  es.onerror = () => {};
+  firebaseListener = es;
+}
+
+function fbStopListen() {
+  if (firebaseListener) { firebaseListener.close(); firebaseListener = null; }
+}
+
+function generateShareCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+async function shareShoppingList() {
+  const list = shoppingLists.find(l => l.id === activeListId);
+  if (!list) return;
+  showToast('⏳ יוצר קוד שיתוף...');
+  try {
+    if (!list._shareCode) {
+      list._shareCode = generateShareCode();
+      localStorage.setItem(SHOPPING_KEY, JSON.stringify(shoppingLists));
+    }
+    const code = list._shareCode;
+    const payload = { ...list, sharedAt: Date.now(), updatedAt: Date.now() };
+    delete payload._lastSync;
+    await fbSet(`shared-lists/${list.id}`, payload);
+    await fbSet(`share-codes/${code}`, { listId: list.id });
+    document.getElementById('shareCode').textContent = code;
+    document.getElementById('shareListNameLabel').textContent = list.name;
+    document.getElementById('shareCopied').style.display = 'none';
+    document.getElementById('shareModal').style.display = 'flex';
+  } catch(e) {
+    showToast('❌ שגיאה — בדוק חיבור לאינטרנט');
+    console.error(e);
+  }
+}
+
+function closeShareModal() { document.getElementById('shareModal').style.display = 'none'; }
+
+function copyShareCode() {
+  const code = document.getElementById('shareCode').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    document.getElementById('shareCopied').style.display = 'block';
+    showToast('📋 הקוד הועתק!');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = code; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    document.getElementById('shareCopied').style.display = 'block';
+    showToast('📋 הקוד הועתק!');
+  });
+}
+
+function openJoinModal() {
+  document.getElementById('joinCodeInput').value = '';
+  document.getElementById('joinError').style.display = 'none';
+  document.getElementById('joinBtn').textContent = 'הצטרף ✓';
+  document.getElementById('joinModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('joinCodeInput').focus(), 300);
+}
+
+function closeJoinModal() { document.getElementById('joinModal').style.display = 'none'; }
+
+async function joinByCode() {
+  const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  if (code.length !== 6) {
+    document.getElementById('joinError').textContent = 'הקוד חייב להיות 6 תווים';
+    document.getElementById('joinError').style.display = 'block';
+    return;
+  }
+  document.getElementById('joinBtn').textContent = '⏳ מחפש...';
+  document.getElementById('joinError').style.display = 'none';
+  try {
+    const codeData = await fbGet(`share-codes/${code}`);
+    if (!codeData || !codeData.listId) {
+      document.getElementById('joinError').textContent = 'קוד לא נמצא — בדוק שהקלדת נכון';
+      document.getElementById('joinError').style.display = 'block';
+      document.getElementById('joinBtn').textContent = 'הצטרף ✓';
+      return;
+    }
+    closeJoinModal();
+    await enterSharedView(codeData.listId);
+  } catch(e) {
+    document.getElementById('joinError').textContent = 'שגיאה — בדוק חיבור לאינטרנט';
+    document.getElementById('joinError').style.display = 'block';
+    document.getElementById('joinBtn').textContent = 'הצטרף ✓';
+  }
+}
+
+async function saveSharedList() {
+  if (!sharedViewMode || !sharedListId) return;
+  const list = shoppingLists.find(l => l.id === sharedListId);
+  if (!list) return;
+  try {
+    const payload = { ...list, updatedAt: Date.now() };
+    delete payload._lastSync;
+    await fbSet(`shared-lists/${sharedListId}`, payload);
+  } catch(e) { console.error('Firebase sync failed:', e); }
+}
+
+async function enterSharedView(listId) {
+  showToast('⏳ טוען רשימה...');
+  try {
+    const data = await fbGet(`shared-lists/${listId}`);
+    if (!data) { showToast('❌ הרשימה לא נמצאה'); return; }
+    const idx = shoppingLists.findIndex(l => l.id === data.id);
+    if (idx >= 0) shoppingLists[idx] = data; else shoppingLists.unshift(data);
+    activeListId = data.id;
+    sharedViewMode = true;
+    sharedListId = listId;
+    document.getElementById('sharedBannerName').textContent = data.name;
+    document.getElementById('sharedBanner').style.display = 'block';
+    // נווט לטאב קניות
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-shopping').classList.add('active');
+    document.querySelector('[onclick*="shopping"]')?.classList.add('active');
+    renderShopping();
+    // האזנה לשינויים בזמן אמת
+    fbListen(`shared-lists/${listId}`, (remote) => {
+      if (!remote) return;
+      const i = shoppingLists.findIndex(l => l.id === sharedListId);
+      if (i >= 0 && (remote.updatedAt||0) > (shoppingLists[i].updatedAt||0)) {
+        shoppingLists[i] = remote;
+        if (activeListId === sharedListId) renderShopping();
+      }
+    });
+    showToast('✅ מחובר: ' + data.name);
+  } catch(e) { showToast('❌ שגיאה בטעינת הרשימה'); console.error(e); }
+}
+
+function exitSharedView() {
+  sharedViewMode = false; sharedListId = null;
+  fbStopListen();
+  document.getElementById('sharedBanner').style.display = 'none';
+  loadShoppingLists(); renderShopping();
+  showToast('יצאת מהרשימה המשותפת');
+}
+
+// עקוף saveShoppingLists במצב שיתוף
+const _origSaveShoppingLists = saveShoppingLists;
+saveShoppingLists = function() {
+  if (sharedViewMode) { saveSharedList(); return; }
+  _origSaveShoppingLists();
+};
+
+</script>
+</body>
+</html>
