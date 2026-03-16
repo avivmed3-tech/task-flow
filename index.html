@@ -415,6 +415,24 @@ select.field-input option { background: #172233; }
 .ios-hint-text { flex: 1; font-size: 13px; color: var(--text2); display: flex; flex-direction: column; gap: 3px; }
 .ios-hint-text strong { color: var(--text); }
 .ios-hint-close { width: 28px; height: 28px; border-radius: 8px; background: var(--surface3); border: none; color: var(--text3); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+/* ─── Update Banner ─── */
+.update-banner {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(120px);
+  background: linear-gradient(135deg, var(--accent), #00c8ff);
+  border-radius: 18px; width: calc(100% - 32px); max-width: 420px;
+  padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+  z-index: 99999; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  font-family: 'Heebo', sans-serif; direction: rtl;
+}
+.update-banner.show { transform: translateX(-50%) translateY(0); }
+.update-icon { font-size: 28px; flex-shrink: 0; }
+.update-text { flex: 1; }
+.update-text strong { display: block; font-size: 15px; font-weight: 800; color: #0a141e; }
+.update-text span { font-size: 12px; color: rgba(10,20,30,0.7); }
+.update-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.update-btn-ok { padding: 8px 16px; border-radius: 10px; background: #0a141e; border: none; color: var(--accent); font-weight: 800; font-size: 13px; cursor: pointer; font-family: 'Heebo', sans-serif; }
+.update-btn-dismiss { padding: 8px 10px; border-radius: 10px; background: rgba(10,20,30,0.2); border: none; color: #0a141e; font-size: 13px; cursor: pointer; font-family: 'Heebo', sans-serif; }
 </style>
 </head>
 <body>
@@ -437,7 +455,6 @@ select.field-input option { background: #172233; }
           <div class="notif-badge" id="notifBadge" style="display:none"></div>
         </div>
         <button class="hbtn" onclick="toggleTheme()" id="themeBtn" title="מצב">🌙</button>
-        <button class="hbtn" onclick="openJoinTasksModal()" title="הצטרף לרשימת משימות" style="font-size:13px">🤝</button>
         <button class="hbtn accent" onclick="openAddTask()" title="משימה חדשה">+</button>
       </div>
     </div>
@@ -1187,22 +1204,28 @@ function renderToday() {
 function renderAll_tab() {
   // מצב מיוחד — הצג משימות משותפות מכל הרשימות
   if (taskFilter === 'shared') {
-    const allSharedItems = taskLists.flatMap(l =>
-      l.items.map(item => ({ ...item, _listName: l.name, _listId: l.id }))
-    );
+    const allSharedItems = [];
+    taskLists.forEach(l => {
+      l.items.forEach(item => {
+        allSharedItems.push({ ...item, _listName: l.name, _listId: l.id });
+      });
+    });
     document.getElementById('allCount').textContent = allSharedItems.length;
-    document.getElementById('allList').innerHTML = allSharedItems.length
-      ? allSharedItems.map(item => `
-        <div class="task-item ${item.done?'done':''}" style="gap:10px">
-          <div class="task-check ${item.done?'checked':''}" onclick="toggleTaskListItem('${item._listId}','${item.id}')"></div>
-          <div class="task-body" style="flex:1">
-            <div class="task-title">${escH(item.title)}</div>
-            <div class="task-meta">
-              <span class="task-tag" style="background:var(--purple-dim);color:var(--purple)">📝 ${escH(item._listName)}</span>
-            </div>
+    if (!allSharedItems.length) {
+      document.getElementById('allList').innerHTML = '<div class="empty"><div class="empty-icon">🔗</div><p>אין משימות משותפות</p><small>עבור לטאב 📝 רשימות כדי ליצור</small></div>';
+      return;
+    }
+    document.getElementById('allList').innerHTML = allSharedItems.map((item, idx) => `
+      <div class="task-item ${item.done?'done':''}" style="gap:10px"
+           data-list-id="${item._listId}" data-item-id="${item.id}">
+        <div class="task-check ${item.done?'checked':''}" onclick="toggleSharedFilterItem(this)"></div>
+        <div class="task-body" style="flex:1">
+          <div class="task-title">${escH(item.title)}</div>
+          <div class="task-meta">
+            <span class="task-tag" style="background:var(--purple-dim);color:var(--purple)">📝 ${escH(item._listName)}</span>
           </div>
-        </div>`).join('')
-      : '<div class="empty"><div class="empty-icon">🔗</div><p>אין משימות משותפות</p><small>עבור לטאב 📝 רשימות כדי ליצור</small></div>';
+        </div>
+      </div>`).join('');
     return;
   }
 
@@ -1219,6 +1242,16 @@ function renderAll_tab() {
   document.getElementById('allList').innerHTML = list.length
     ? list.map(t=>taskHTML(t)).join('')
     : '<div class="empty"><div class="empty-icon">📋</div><p>אין משימות</p></div>';
+}
+
+function toggleSharedFilterItem(checkEl) {
+  const row = checkEl.closest('[data-list-id]');
+  if (!row) return;
+  const listId = row.dataset.listId;
+  const itemId = row.dataset.itemId;
+  toggleTaskListItem(listId, itemId);
+  // רענן את הפילטר
+  setTimeout(() => renderAll_tab(), 100);
 }
 
 function renderGoals() {
@@ -1784,20 +1817,23 @@ function dismissInstall() {
 
 // ── Update banner ─────────────────────────
 function showUpdateBanner() {
-  document.getElementById('updateBanner').style.display = 'flex';
+  const b = document.getElementById('updateBanner');
+  b.style.display = 'flex';
+  setTimeout(() => b.classList.add('show'), 50);
 }
 function applyUpdate() {
   if (pendingSWUpdate) {
     pendingSWUpdate.postMessage({ type: 'SKIP_WAITING' });
   }
-  // Reload once new SW takes control
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload();
   });
-  document.getElementById('updateBanner').style.display = 'none';
+  dismissUpdate();
 }
 function dismissUpdate() {
-  document.getElementById('updateBanner').style.display = 'none';
+  const b = document.getElementById('updateBanner');
+  b.classList.remove('show');
+  setTimeout(() => b.style.display = 'none', 400);
 }
 
 // ─── Keyboard ─────────────────────────────
@@ -2096,16 +2132,22 @@ async function fbGet(path) {
 
 function fbListen(path, callback) {
   fbStopListen();
-  const es = new EventSource(`${FIREBASE_DB_URL}/${path}.json`);
-  es.addEventListener('put', e => {
-    try { const msg = JSON.parse(e.data); if (msg && msg.data) callback(msg.data); } catch(err) {}
-  });
-  es.onerror = () => {};
-  firebaseListener = es;
+  let lastUpdatedAt = 0;
+  const poll = async () => {
+    try {
+      const data = await fbGet(path);
+      if (data && (data.updatedAt || 0) > lastUpdatedAt) {
+        lastUpdatedAt = data.updatedAt || 0;
+        callback(data);
+      }
+    } catch(e) {}
+  };
+  poll(); // בדיקה מיידית
+  firebaseListener = setInterval(poll, 3000); // כל 3 שניות
 }
 
 function fbStopListen() {
-  if (firebaseListener) { firebaseListener.close(); firebaseListener = null; }
+  if (firebaseListener) { clearInterval(firebaseListener); firebaseListener = null; }
 }
 
 function generateShareCode() {
@@ -2314,13 +2356,14 @@ function renderActiveTaskList() {
   const sorted = [...list.items].sort((a,b) => (a.done?1:-1)-(b.done?1:-1));
   const isReadOnly = sharedTaskListMode && sharedTaskListId === activeTaskListId;
   itemsEl.innerHTML = sorted.map(item => `
-    <div class="task-item ${item.done?'done':''}" style="gap:10px">
-      <div class="task-check ${item.done?'checked':''}" onclick="toggleTaskListItem('${list.id}','${item.id}')"></div>
+    <div class="task-item ${item.done?'done':''}" style="gap:10px"
+         data-list-id="${list.id}" data-item-id="${item.id}">
+      <div class="task-check ${item.done?'checked':''}" onclick="toggleTaskListItemByEl(this)"></div>
       <div class="task-body" style="flex:1">
         <div class="task-title">${escH(item.title)}</div>
       </div>
       ${!isReadOnly ? `<div class="task-actions" style="opacity:1">
-        <button class="task-act del" onclick="removeTaskListItem('${list.id}','${item.id}')">🗑️</button>
+        <button class="task-act del" onclick="removeTaskListItemByEl(this)">🗑️</button>
       </div>` : ''}
     </div>`).join('');
 }
@@ -2343,6 +2386,18 @@ function addTaskListItem() {
   saveTaskLists();
   renderTaskLists();
   if (list._shareCode) syncTaskListToFirebase(list);
+}
+
+function toggleTaskListItemByEl(el) {
+  const row = el.closest('[data-list-id]');
+  if (!row) return;
+  toggleTaskListItem(row.dataset.listId, row.dataset.itemId);
+}
+
+function removeTaskListItemByEl(el) {
+  const row = el.closest('[data-list-id]');
+  if (!row) return;
+  removeTaskListItem(row.dataset.listId, row.dataset.itemId);
 }
 
 function toggleTaskListItem(listId, itemId) {
@@ -2510,23 +2565,22 @@ function enterSharedTaskListView(code, data) {
 
   renderTaskLists();
 
-  // האזנה לשינויים בזמן אמת
-  if (firebaseTaskListListener) { firebaseTaskListListener.close(); firebaseTaskListListener = null; }
-  const es = new EventSource(`${FIREBASE_DB_URL}/task-lists/${code}.json`);
-  es.addEventListener('put', e => {
+  // האזנה לשינויים בזמן אמת — polling כל 3 שניות
+  if (firebaseTaskListListener) { clearInterval(firebaseTaskListListener); firebaseTaskListListener = null; }
+  let lastTLUpdatedAt = data.updatedAt || 0;
+  firebaseTaskListListener = setInterval(async () => {
     try {
-      const msg = JSON.parse(e.data);
-      if (msg && msg.data && msg.data.items) {
+      const remote = await fbGet(`task-lists/${code}`);
+      if (remote && (remote.updatedAt||0) > lastTLUpdatedAt) {
+        lastTLUpdatedAt = remote.updatedAt;
         const i = taskLists.findIndex(l => l.id === sharedTaskListId);
-        if (i >= 0 && (msg.data.updatedAt||0) > (taskLists[i].updatedAt||0)) {
-          taskLists[i] = msg.data;
-          if (activeTaskListId === sharedTaskListId) renderTaskLists();
-        }
+        if (i >= 0) taskLists[i] = remote;
+        else taskLists.unshift(remote);
+        if (activeTaskListId === sharedTaskListId) renderTaskLists();
+        if (taskFilter === 'shared') renderAll_tab();
       }
-    } catch(err) {}
-  });
-  es.onerror = () => {};
-  firebaseTaskListListener = es;
+    } catch(e) {}
+  }, 3000);
 
   showToast('✅ מחובר: ' + data.name);
 }
@@ -2542,9 +2596,10 @@ async function syncTaskListToFirebase(list) {
 // ─── יציאה מצפייה משותפת ────────────────────
 function exitSharedTaskListView() {
   sharedTaskListMode = false; sharedTaskListId = null;
-  if (firebaseTaskListListener) { firebaseTaskListListener.close(); firebaseTaskListListener = null; }
+  if (firebaseTaskListListener) { clearInterval(firebaseTaskListListener); firebaseTaskListListener = null; }
   document.getElementById('sharedTaskListBanner').style.display = 'none';
-  taskLists = taskLists.filter(l => l._shareCode !== undefined ? false : true);
+  // הסר רק רשימות משותפות (שאין להן _shareCode בשלנו — רק אצל המצטרף)
+  taskLists = taskLists.filter(l => localStorage.getItem('tf_tasklists_v1') ? true : false);
   loadTaskLists(); renderTaskLists();
   showToast('יצאת מהרשימה המשותפת');
 }
