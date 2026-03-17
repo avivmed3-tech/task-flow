@@ -446,7 +446,7 @@ select.field-input option { background: #172233; }
         <img src="icon-192.png" class="logo-img" alt="TaskFlow">
         <div>
           <div class="logo-name">TaskFlow</div>
-          <div class="logo-sub">ניהול משימות חכם · <span style="color:var(--accent);font-family:'DM Mono',monospace">v14</span></div>
+          <div class="logo-sub">ניהול משימות חכם · <span style="color:var(--accent);font-family:'DM Mono',monospace">v15</span></div>
         </div>
       </div>
       <div class="header-btns">
@@ -1904,7 +1904,6 @@ async function restoreJoinedShoppingLists() {
         data._shareCode = entry.listId;
         const idx = shoppingLists.findIndex(l => l.id === data.id);
         if (idx >= 0) shoppingLists[idx] = data; else shoppingLists.unshift(data);
-        // הפעל polling
         sharedViewMode = true;
         sharedListId = entry.listId;
         document.getElementById('sharedBannerName').textContent = data.name;
@@ -1919,6 +1918,23 @@ async function restoreJoinedShoppingLists() {
         });
       } catch(e) {}
     }
+    // שחזר פולינג גם לרשימות שהיוצר שיתף (יש להן _shareCode ב-localStorage)
+    shoppingLists.forEach(list => {
+      if (!list._shareCode) return;
+      if (joined.find(e => e.listId === list.id)) return; // כבר מטופל למעלה
+      let lastAt = list.updatedAt || 0;
+      setInterval(async () => {
+        try {
+          const remote = await fbGet(`shared-lists/${list.id}`);
+          if (remote && (remote.updatedAt||0) > lastAt) {
+            lastAt = remote.updatedAt;
+            const i = shoppingLists.findIndex(l => l.id === list.id);
+            if (i >= 0) shoppingLists[i] = { ...remote, _shareCode: list._shareCode };
+            if (activeListId === list.id) renderShopping();
+          }
+        } catch(e) {}
+      }, 3000);
+    });
     if (joined.length) renderShopping();
   } catch(e) {}
 }
@@ -2219,6 +2235,20 @@ async function shareShoppingList() {
     delete payload._lastSync;
     await fbSet(`shared-lists/${list.id}`, payload);
     await fbSet(`share-codes/${code}`, { listId: list.id });
+
+    // הפעל פולינג גם אצל היוצר כדי לקבל שינויים מהמצטרף
+    if (sharedListId !== list.id) {
+      sharedListId = list.id;
+      fbListen(`shared-lists/${list.id}`, (remote) => {
+        if (!remote) return;
+        const i = shoppingLists.findIndex(l => l.id === list.id);
+        if (i >= 0 && (remote.updatedAt||0) > (shoppingLists[i].updatedAt||0)) {
+          shoppingLists[i] = { ...remote, _shareCode: code };
+          if (activeListId === list.id) renderShopping();
+        }
+      });
+    }
+
     document.getElementById('shareCode').textContent = code;
     document.getElementById('shareListNameLabel').textContent = list.name;
     document.getElementById('shareCopied').style.display = 'none';
@@ -2588,6 +2618,24 @@ async function shareTaskList() {
     const code = list._shareCode;
     await fbSet(`task-lists/${code}`, { ...list, updatedAt: Date.now() });
     await fbSet(`tl-codes/${code}`, { listId: list.id, code });
+
+    // הפעל פולינג גם אצל היוצר
+    if (sharedTaskListId !== list.id) {
+      sharedTaskListId = list.id;
+      if (firebaseTaskListListener) clearInterval(firebaseTaskListListener);
+      let lastAt = Date.now();
+      firebaseTaskListListener = setInterval(async () => {
+        try {
+          const remote = await fbGet(`task-lists/${code}`);
+          if (remote && (remote.updatedAt||0) > lastAt) {
+            lastAt = remote.updatedAt;
+            const i = taskLists.findIndex(l => l.id === list.id);
+            if (i >= 0) taskLists[i] = { ...remote, _shareCode: code };
+            if (activeTaskListId === list.id) renderTaskLists();
+          }
+        } catch(e) {}
+      }, 3000);
+    }
 
     document.getElementById('shareTaskListCode').textContent = code;
     document.getElementById('shareTaskListNameLabel').textContent = list.name + ' — ' + list.items.length + ' משימות';
