@@ -1,9 +1,8 @@
-const CACHE = 'taskflow-v13';
+const CACHE = 'taskflow-v14';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-  // Do NOT skipWaiting here — let the app show the update banner first
 });
 
 self.addEventListener('activate', e => {
@@ -16,9 +15,7 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('message', e => {
-  // App tells SW to activate the new version
   if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
-  // App sends a reminder to show (used when app is backgrounded/hidden)
   if (e.data?.type === 'SHOW_REMINDER') {
     self.registration.showNotification('⏰ TaskFlow — תזכורת', {
       body: e.data.title,
@@ -37,6 +34,16 @@ self.addEventListener('message', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+
+  // אל תיירט בקשות Firebase או API חיצוני
+  if (url.hostname.includes('firebaseio.com') ||
+      url.hostname.includes('googleapis.com') ||
+      url.hostname.includes('firebase.com') ||
+      e.request.method !== 'GET') {
+    return; // תן לדפדפן לטפל בזה ישירות
+  }
+
+  // רק GET מהאתר עצמו — שמור בקאש
   if (url.origin === self.location.origin) {
     e.respondWith(
       fetch(e.request)
@@ -47,21 +54,9 @@ self.addEventListener('fetch', e => {
         })
         .catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
     );
-  } else {
-    e.respondWith(
-      caches.match(e.request).then(cached => {
-        if (cached) return cached;
-        return fetch(e.request).then(res => {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-          return res;
-        }).catch(() => cached);
-      })
-    );
   }
 });
 
-// Notification clicked → open app
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   if (e.action === 'dismiss') return;
@@ -74,7 +69,6 @@ self.addEventListener('notificationclick', e => {
   );
 });
 
-// Push notifications (ready for Firebase integration)
 self.addEventListener('push', e => {
   if (!e.data) return;
   let data = {};
