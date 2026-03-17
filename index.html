@@ -446,7 +446,7 @@ select.field-input option { background: #172233; }
         <img src="icon-192.png" class="logo-img" alt="TaskFlow">
         <div>
           <div class="logo-name">TaskFlow</div>
-          <div class="logo-sub">ניהול משימות חכם</div>
+          <div class="logo-sub">ניהול משימות חכם · <span style="color:var(--accent);font-family:'DM Mono',monospace">v13</span></div>
         </div>
       </div>
       <div class="header-btns">
@@ -1867,10 +1867,60 @@ function rescheduleAllReminders() {
 // SHOPPING LISTS
 // ═══════════════════════════════════════════
 
-function saveShoppingLists() { try { localStorage.setItem(SHOPPING_KEY, JSON.stringify(shoppingLists)); } catch(e){} }
+function saveShoppingLists() {
+  try { localStorage.setItem(SHOPPING_KEY, JSON.stringify(shoppingLists)); } catch(e) {}
+  // סנכרן ל-Firebase כל רשימה שיש לה קוד שיתוף
+  shoppingLists.forEach(list => {
+    if (list._shareCode) {
+      const payload = { ...list, updatedAt: Date.now() };
+      delete payload._lastSync;
+      fbSet(`shared-lists/${list.id}`, payload).catch(e => console.error('sync err:', e));
+    }
+  });
+  // אם במצב צפייה משותפת — סנכרן את הרשימה הפעילה
+  if (sharedViewMode && sharedListId) {
+    const list = shoppingLists.find(l => l.id === sharedListId);
+    if (list) {
+      const payload = { ...list, updatedAt: Date.now() };
+      delete payload._lastSync;
+      fbSet(`shared-lists/${sharedListId}`, payload).catch(e => console.error('sync err:', e));
+    }
+  }
+}
 function loadShoppingLists() {
   try { shoppingLists = JSON.parse(localStorage.getItem(SHOPPING_KEY)) || []; } catch(e){ shoppingLists = []; }
   if (shoppingLists.length) activeListId = shoppingLists.filter(l=>!l.completedAt).slice(-1)[0]?.id || shoppingLists[0].id;
+  // טען רשימות שהצטרפנו אליהן מחדש מ-Firebase
+  restoreJoinedShoppingLists();
+}
+
+async function restoreJoinedShoppingLists() {
+  try {
+    const joined = JSON.parse(localStorage.getItem('tf_joined_shopping') || '[]');
+    for (const entry of joined) {
+      try {
+        const data = await fbGet(`shared-lists/${entry.listId}`);
+        if (!data) continue;
+        data._shareCode = entry.listId;
+        const idx = shoppingLists.findIndex(l => l.id === data.id);
+        if (idx >= 0) shoppingLists[idx] = data; else shoppingLists.unshift(data);
+        // הפעל polling
+        sharedViewMode = true;
+        sharedListId = entry.listId;
+        document.getElementById('sharedBannerName').textContent = data.name;
+        document.getElementById('sharedBanner').style.display = 'block';
+        fbListen(`shared-lists/${entry.listId}`, (remote) => {
+          if (!remote) return;
+          const i = shoppingLists.findIndex(l => l.id === sharedListId);
+          if (i >= 0 && (remote.updatedAt||0) > (shoppingLists[i].updatedAt||0)) {
+            shoppingLists[i] = remote;
+            if (activeListId === sharedListId) renderShopping();
+          }
+        });
+      } catch(e) {}
+    }
+    if (joined.length) renderShopping();
+  } catch(e) {}
 }
 
 // ─── Render shopping tab ───────────────────
@@ -2247,6 +2297,13 @@ async function enterSharedView(listId) {
   try {
     const data = await fbGet(`shared-lists/${listId}`);
     if (!data) { showToast('❌ הרשימה לא נמצאה'); return; }
+    // שמור את הקוד כדי לשחזר אחרי רענון
+    data._shareCode = listId;
+    const joined = JSON.parse(localStorage.getItem('tf_joined_shopping') || '[]');
+    if (!joined.find(e => e.listId === listId)) {
+      joined.push({ listId });
+      localStorage.setItem('tf_joined_shopping', JSON.stringify(joined));
+    }
     const idx = shoppingLists.findIndex(l => l.id === data.id);
     if (idx >= 0) shoppingLists[idx] = data; else shoppingLists.unshift(data);
     activeListId = data.id;
@@ -2274,6 +2331,11 @@ async function enterSharedView(listId) {
 }
 
 function exitSharedView() {
+  // מחק מהזיכרון הקבוע
+  try {
+    const joined = JSON.parse(localStorage.getItem('tf_joined_shopping') || '[]');
+    localStorage.setItem('tf_joined_shopping', JSON.stringify(joined.filter(e => e.listId !== sharedListId)));
+  } catch(e) {}
   sharedViewMode = false; sharedListId = null;
   fbStopListen();
   document.getElementById('sharedBanner').style.display = 'none';
@@ -2297,10 +2359,61 @@ let firebaseTaskListListener = null;
 
 function saveTaskLists() {
   try { localStorage.setItem(TASK_LISTS_KEY, JSON.stringify(taskLists)); } catch(e) {}
+  // סנכרן ל-Firebase כל רשימה שיש לה קוד שיתוף
+  taskLists.forEach(list => {
+    if (list._shareCode) {
+      fbSet(`task-lists/${list._shareCode}`, { ...list, updatedAt: Date.now() })
+        .catch(e => console.error('TL sync err:', e));
+    }
+  });
+  // אם במצב צפייה משותפת
+  if (sharedTaskListMode && sharedTaskListId) {
+    const list = taskLists.find(l => l.id === sharedTaskListId);
+    if (list && list._shareCode) {
+      fbSet(`task-lists/${list._shareCode}`, { ...list, updatedAt: Date.now() })
+        .catch(e => console.error('TL sync err:', e));
+    }
+  }
 }
 function loadTaskLists() {
   try { taskLists = JSON.parse(localStorage.getItem(TASK_LISTS_KEY)) || []; } catch(e) { taskLists = []; }
   if (taskLists.length) activeTaskListId = taskLists[0].id;
+  restoreJoinedTaskLists();
+}
+
+async function restoreJoinedTaskLists() {
+  try {
+    const joined = JSON.parse(localStorage.getItem('tf_joined_tasklists') || '[]');
+    for (const entry of joined) {
+      try {
+        const data = await fbGet(`task-lists/${entry.code}`);
+        if (!data || !data.items) continue;
+        data._shareCode = entry.code;
+        const idx = taskLists.findIndex(l => l.id === data.id);
+        if (idx >= 0) taskLists[idx] = data; else taskLists.unshift(data);
+        sharedTaskListMode = true;
+        sharedTaskListId = data.id;
+        document.getElementById('sharedTaskListBannerName').textContent = data.name;
+        document.getElementById('sharedTaskListBanner').style.display = 'block';
+        // polling
+        if (firebaseTaskListListener) clearInterval(firebaseTaskListListener);
+        let lastAt = data.updatedAt || 0;
+        firebaseTaskListListener = setInterval(async () => {
+          try {
+            const remote = await fbGet(`task-lists/${entry.code}`);
+            if (remote && (remote.updatedAt||0) > lastAt) {
+              lastAt = remote.updatedAt;
+              const i = taskLists.findIndex(l => l.id === sharedTaskListId);
+              if (i >= 0) taskLists[i] = remote; else taskLists.unshift(remote);
+              renderTaskLists();
+            }
+          } catch(e) {}
+        }, 3000);
+      } catch(e) {}
+    }
+    if (joined.length) renderTaskLists();
+  } catch(e) {}
+}
 }
 
 // ─── רינדור ────────────────────────────────
@@ -2550,6 +2663,15 @@ function enterSharedTaskListView(code, data) {
   sharedTaskListMode = true;
   sharedTaskListId = data.id;
 
+  // שמור את הקוד גם על הרשימה כדי שסנכרון יעבוד
+  data._shareCode = code;
+  // שמור לשחזור אחרי רענון
+  const joined = JSON.parse(localStorage.getItem('tf_joined_tasklists') || '[]');
+  if (!joined.find(e => e.code === code)) {
+    joined.push({ code });
+    localStorage.setItem('tf_joined_tasklists', JSON.stringify(joined));
+  }
+
   const idx = taskLists.findIndex(l => l.id === data.id);
   if (idx >= 0) taskLists[idx] = data; else taskLists.unshift(data);
   activeTaskListId = data.id;
@@ -2595,11 +2717,17 @@ async function syncTaskListToFirebase(list) {
 
 // ─── יציאה מצפייה משותפת ────────────────────
 function exitSharedTaskListView() {
+  // מחק מהזיכרון הקבוע
+  try {
+    const list = taskLists.find(l => l.id === sharedTaskListId);
+    if (list?._shareCode) {
+      const joined = JSON.parse(localStorage.getItem('tf_joined_tasklists') || '[]');
+      localStorage.setItem('tf_joined_tasklists', JSON.stringify(joined.filter(e => e.code !== list._shareCode)));
+    }
+  } catch(e) {}
   sharedTaskListMode = false; sharedTaskListId = null;
   if (firebaseTaskListListener) { clearInterval(firebaseTaskListListener); firebaseTaskListListener = null; }
   document.getElementById('sharedTaskListBanner').style.display = 'none';
-  // הסר רק רשימות משותפות (שאין להן _shareCode בשלנו — רק אצל המצטרף)
-  taskLists = taskLists.filter(l => localStorage.getItem('tf_tasklists_v1') ? true : false);
   loadTaskLists(); renderTaskLists();
   showToast('יצאת מהרשימה המשותפת');
 }
