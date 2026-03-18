@@ -449,7 +449,7 @@ select.field-input option { background: #172233; }
         <img src="icon-192.png" class="logo-img" alt="TaskFlow">
         <div>
           <div class="logo-name">TaskFlow</div>
-          <div class="logo-sub">ניהול משימות חכם · <span style="color:var(--accent);font-family:'DM Mono',monospace">v17</span></div>
+          <div class="logo-sub">ניהול משימות חכם · <span style="color:var(--accent);font-family:'DM Mono',monospace">v16</span></div>
         </div>
       </div>
       <div class="header-btns">
@@ -1362,10 +1362,7 @@ function toggleTask(id) {
   const t = tasks.find(x=>x.id===id);
   if (!t) return;
   t.done = !t.done;
-  if (t.done) {
-    addNotif('✅ הושלמה', t.title, 'var(--accent)');
-    removeReminderFromFirebase(id); // מחק תזכורת מ-Firebase
-  }
+  if (t.done) addNotif('✅ הושלמה', t.title, 'var(--accent)');
   saveTasks(); renderAll();
   showToast(t.done ? '✅ משימה הושלמה!' : '↩️ משימה הוחזרה');
 }
@@ -1464,10 +1461,6 @@ function submitTask() {
     addNotif('➕ נוספה משימה', title, 'var(--blue)');
     showToast('✅ משימה נוספה!');
     scheduleReminder(t);
-    saveReminderToFirebase(t); // שמור ב-Firebase לפוש כשהאפליקציה סגורה
-  } else {
-    scheduleReminder(t);
-    saveReminderToFirebase(t);
   }
   saveTasks(); closeTaskModal(); renderAll();
 }
@@ -1629,62 +1622,8 @@ async function acceptNotifPrompt() {
     showToast('🔔 התראות אופשרו!');
     addNotif('🔔 התראות מופעלות', 'תקבל תזכורות לכל משימה שמוגדרת עם שעה', 'var(--accent)');
     renderNotifs();
-    // רשום FCM token לקבלת push notifications כשהאפליקציה סגורה
-    registerFCMToken();
   }
   if (window._notifPromptResolve) { window._notifPromptResolve(result === 'granted'); window._notifPromptResolve = null; }
-}
-
-// ─── רישום FCM Token ───────────────────────
-const VAPID_KEY = 'BAk8Ks02XdOICTn92S6_046DU06T45xyoKV-fCEnzlrjJgbVYz0jHGnf1jkKtcCj31w6-6zun7ViUjGDrrt-Jk4';
-
-async function registerFCMToken() {
-  try {
-    if (!('serviceWorker' in navigator)) return;
-    const reg = await navigator.serviceWorker.ready;
-    // קבל FCM token דרך Push API
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
-    });
-    // שמור את ה-token ב-localStorage וב-Firebase
-    const token = JSON.stringify(sub);
-    localStorage.setItem('tf_push_token', token);
-    await fbSet(`push-tokens/${Date.now()}`, { token, createdAt: Date.now() });
-    console.log('FCM token registered');
-  } catch(e) {
-    console.error('FCM registration failed:', e);
-  }
-}
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
-}
-
-// ─── שמור תזכורת ב-Firebase לשליחה כש-app סגורה ─
-async function saveReminderToFirebase(task) {
-  if (!task.reminder || !task.due) return;
-  const token = localStorage.getItem('tf_push_token');
-  if (!token) return;
-  const fireAt = new Date(task.due + 'T' + task.reminder + ':00').getTime();
-  if (fireAt <= Date.now()) return;
-  try {
-    await fbSet(`push-reminders/${task.id}`, {
-      taskId: task.id,
-      title: task.title,
-      fireAt,
-      token,
-      sound: task.sound || 'default'
-    });
-  } catch(e) { console.error('saveReminderToFirebase failed:', e); }
-}
-
-// ─── מחק תזכורת מ-Firebase כשמשימה מסומנת ─
-async function removeReminderFromFirebase(taskId) {
-  try { await fetch(`${FIREBASE_DB_URL}/push-reminders/${taskId}.json`, { method: 'DELETE' }); } catch(e) {}
 }
 
 function dismissNotifPrompt() {
