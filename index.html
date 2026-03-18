@@ -135,6 +135,9 @@ body.light .header { background-color: rgba(240,245,249,0.92); }
 .hbtn.accent { background: var(--accent); color: #0a141e; border-color: transparent; font-size: 20px; font-weight: 700; box-shadow: 0 4px 16px rgba(0,210,150,0.3); }
 .share-cat-btn { padding:7px 12px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;font-size:12px;font-family:'Heebo',sans-serif;transition:all 0.2s; }
 .share-cat-btn:hover,.share-cat-btn.selected { background:var(--purple-dim);border-color:var(--purple);color:var(--purple); }
+.sound-opt { padding:6px 11px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;font-size:12px;font-family:'Heebo',sans-serif;transition:all 0.2s; }
+.sound-opt:hover { background:var(--surface3); }
+.sound-opt.selected { background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow); }
 .hbtn.accent:hover { transform: scale(1.05); }
 
 /* ── Progress bar ───────────────────────── */
@@ -446,7 +449,7 @@ select.field-input option { background: #172233; }
         <img src="icon-192.png" class="logo-img" alt="TaskFlow">
         <div>
           <div class="logo-name">TaskFlow</div>
-          <div class="logo-sub">ניהול משימות חכם · <span style="color:var(--accent);font-family:'DM Mono',monospace">v15</span></div>
+          <div class="logo-sub">ניהול משימות חכם · <span style="color:var(--accent);font-family:'DM Mono',monospace">v17</span></div>
         </div>
       </div>
       <div class="header-btns">
@@ -759,7 +762,19 @@ select.field-input option { background: #172233; }
       </div>
       <div class="field">
         <div class="field-label">שעת תזכורת</div>
-        <input type="time" class="field-input" id="fReminder">
+        <input type="time" class="field-input" id="fReminder"
+          onchange="document.getElementById('fSoundWrap').style.display=this.value?'block':'none'">
+      </div>
+    </div>
+    <div class="field" id="fSoundWrap" style="display:none;margin-bottom:13px">
+      <div class="field-label">צליל התראה</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="soundPicker">
+        <button class="sound-opt selected" onclick="selectSound('default',this)" data-sound="default">🔔 ברירת מחדל</button>
+        <button class="sound-opt" onclick="selectSound('bell',this)" data-sound="bell">🛎️ פעמון</button>
+        <button class="sound-opt" onclick="selectSound('ping',this)" data-sound="ping">🎵 פינג</button>
+        <button class="sound-opt" onclick="selectSound('alarm',this)" data-sound="alarm">⏰ אזעקה</button>
+        <button class="sound-opt" onclick="selectSound('chime',this)" data-sound="chime">✨ צלצול</button>
+        <button class="sound-opt" onclick="selectSound('none',this)" data-sound="none">🔕 ללא</button>
       </div>
     </div>
     <div class="field">
@@ -1347,7 +1362,10 @@ function toggleTask(id) {
   const t = tasks.find(x=>x.id===id);
   if (!t) return;
   t.done = !t.done;
-  if (t.done) addNotif('✅ הושלמה', t.title, 'var(--accent)');
+  if (t.done) {
+    addNotif('✅ הושלמה', t.title, 'var(--accent)');
+    removeReminderFromFirebase(id); // מחק תזכורת מ-Firebase
+  }
   saveTasks(); renderAll();
   showToast(t.done ? '✅ משימה הושלמה!' : '↩️ משימה הוחזרה');
 }
@@ -1374,6 +1392,11 @@ function openAddTask() {
   setPrio('low');
   populateGoalSelect('');
   document.getElementById('taskFormError').style.display = 'none';
+  // אפס צליל
+  formSound = 'default';
+  document.querySelectorAll('.sound-opt').forEach(b => b.classList.remove('selected'));
+  document.querySelector('.sound-opt[data-sound="default"]')?.classList.add('selected');
+  document.getElementById('fSoundWrap').style.display = 'none';
   document.getElementById('taskModal').style.display = 'flex';
   setTimeout(()=>document.getElementById('fTitle').focus(),300);
 }
@@ -1392,6 +1415,11 @@ function openEditTask(id) {
   setPrio(t.priority || 'low');
   populateGoalSelect(t.goalId || '');
   document.getElementById('taskFormError').style.display = 'none';
+  // טען צליל
+  formSound = t.sound || 'default';
+  document.querySelectorAll('.sound-opt').forEach(b => b.classList.remove('selected'));
+  document.querySelector(`.sound-opt[data-sound="${formSound}"]`)?.classList.add('selected');
+  document.getElementById('fSoundWrap').style.display = t.reminder ? 'block' : 'none';
   document.getElementById('taskModal').style.display = 'flex';
 }
 
@@ -1420,6 +1448,7 @@ function submitTask() {
     title, desc: document.getElementById('fDesc').value.trim(),
     due: document.getElementById('fDue').value,
     reminder: document.getElementById('fReminder').value,
+    sound: formSound,
     priority: formPrio,
     category: document.getElementById('fCategory').value,
     goalId: document.getElementById('fGoal').value,
@@ -1435,11 +1464,96 @@ function submitTask() {
     addNotif('➕ נוספה משימה', title, 'var(--blue)');
     showToast('✅ משימה נוספה!');
     scheduleReminder(t);
+    saveReminderToFirebase(t); // שמור ב-Firebase לפוש כשהאפליקציה סגורה
+  } else {
+    scheduleReminder(t);
+    saveReminderToFirebase(t);
   }
   saveTasks(); closeTaskModal(); renderAll();
 }
 
 // ─── Reminders ────────────────────────────
+// ═══════════════════════════════════════════
+// מנגנון צלילים — Web Audio API
+// ═══════════════════════════════════════════
+
+let formSound = 'default';
+
+function selectSound(sound, btn) {
+  formSound = sound;
+  document.querySelectorAll('.sound-opt').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  // נגן דוגמה
+  if (sound !== 'none') playSound(sound);
+}
+
+function playSound(sound) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const sounds = {
+      default: () => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 880; o.type = 'sine';
+        g.gain.setValueAtTime(0.3, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        o.start(); o.stop(ctx.currentTime + 0.5);
+      },
+      bell: () => {
+        [523, 659, 784].forEach((freq, i) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.frequency.value = freq; o.type = 'sine';
+          g.gain.setValueAtTime(0, ctx.currentTime + i * 0.15);
+          g.gain.linearRampToValueAtTime(0.3, ctx.currentTime + i * 0.15 + 0.05);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.6);
+          o.start(ctx.currentTime + i * 0.15);
+          o.stop(ctx.currentTime + i * 0.15 + 0.6);
+        });
+      },
+      ping: () => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.setValueAtTime(1200, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.2);
+        o.type = 'sine';
+        g.gain.setValueAtTime(0.4, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        o.start(); o.stop(ctx.currentTime + 0.3);
+      },
+      alarm: () => {
+        for (let i = 0; i < 3; i++) {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.frequency.value = i % 2 === 0 ? 800 : 600;
+          o.type = 'square';
+          g.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.2);
+          g.gain.setValueAtTime(0, ctx.currentTime + i * 0.2 + 0.18);
+          o.start(ctx.currentTime + i * 0.2);
+          o.stop(ctx.currentTime + i * 0.2 + 0.18);
+        }
+      },
+      chime: () => {
+        [1047, 1319, 1568, 2093].forEach((freq, i) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.frequency.value = freq; o.type = 'sine';
+          g.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.12);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.8);
+          o.start(ctx.currentTime + i * 0.12);
+          o.stop(ctx.currentTime + i * 0.12 + 0.8);
+        });
+      }
+    };
+    if (sounds[sound]) sounds[sound]();
+  } catch(e) {}
+}
+
 function scheduleReminder(t) {
   if (!t.reminder || !t.due || t.done) return;
   const remTime = new Date(t.due + 'T' + t.reminder + ':00');
@@ -1451,10 +1565,14 @@ function scheduleReminder(t) {
     if (!task || task.done) return;
     addNotif('⏰ תזכורת', task.title, 'var(--yellow)');
     showToast('⏰ ' + task.title);
+    // נגן צליל
+    const sound = task.sound || 'default';
+    if (sound !== 'none') playSound(sound);
+    // שלח התראה
     if (Notification.permission === 'granted') {
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
-          type: 'SHOW_REMINDER', title: task.title, taskId: task.id
+          type: 'SHOW_REMINDER', title: task.title, taskId: task.id, sound
         });
       } else {
         new Notification('⏰ TaskFlow — תזכורת', { body: task.title, icon: 'icon-192.png' });
@@ -1511,8 +1629,62 @@ async function acceptNotifPrompt() {
     showToast('🔔 התראות אופשרו!');
     addNotif('🔔 התראות מופעלות', 'תקבל תזכורות לכל משימה שמוגדרת עם שעה', 'var(--accent)');
     renderNotifs();
+    // רשום FCM token לקבלת push notifications כשהאפליקציה סגורה
+    registerFCMToken();
   }
   if (window._notifPromptResolve) { window._notifPromptResolve(result === 'granted'); window._notifPromptResolve = null; }
+}
+
+// ─── רישום FCM Token ───────────────────────
+const VAPID_KEY = 'BAk8Ks02XdOICTn92S6_046DU06T45xyoKV-fCEnzlrjJgbVYz0jHGnf1jkKtcCj31w6-6zun7ViUjGDrrt-Jk4';
+
+async function registerFCMToken() {
+  try {
+    if (!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    // קבל FCM token דרך Push API
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
+    });
+    // שמור את ה-token ב-localStorage וב-Firebase
+    const token = JSON.stringify(sub);
+    localStorage.setItem('tf_push_token', token);
+    await fbSet(`push-tokens/${Date.now()}`, { token, createdAt: Date.now() });
+    console.log('FCM token registered');
+  } catch(e) {
+    console.error('FCM registration failed:', e);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+}
+
+// ─── שמור תזכורת ב-Firebase לשליחה כש-app סגורה ─
+async function saveReminderToFirebase(task) {
+  if (!task.reminder || !task.due) return;
+  const token = localStorage.getItem('tf_push_token');
+  if (!token) return;
+  const fireAt = new Date(task.due + 'T' + task.reminder + ':00').getTime();
+  if (fireAt <= Date.now()) return;
+  try {
+    await fbSet(`push-reminders/${task.id}`, {
+      taskId: task.id,
+      title: task.title,
+      fireAt,
+      token,
+      sound: task.sound || 'default'
+    });
+  } catch(e) { console.error('saveReminderToFirebase failed:', e); }
+}
+
+// ─── מחק תזכורת מ-Firebase כשמשימה מסומנת ─
+async function removeReminderFromFirebase(taskId) {
+  try { await fetch(`${FIREBASE_DB_URL}/push-reminders/${taskId}.json`, { method: 'DELETE' }); } catch(e) {}
 }
 
 function dismissNotifPrompt() {
